@@ -13,6 +13,7 @@
       "bundleIdentifier": "com.dotportion.ilaaka",
       "infoPlist": {
         "UIBackgroundModes": [
+          "location",
           "location"
         ],
         "NSLocationWhenInUseUsageDescription": "Ilaaka tracks your route while you exercise.",
@@ -27,6 +28,14 @@
         "backgroundImage": "./assets/images/android-icon-background.png"
       },
       "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
@@ -73,6 +82,12 @@
         "projectId": "871e2680-2c6c-4e6d-adc0-b480f4881d44"
       }
     },
-    "owner": "sricharan_dotportion"
+    "owner": "sricharan_dotportion",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/871e2680-2c6c-4e6d-adc0-b480f4881d44"
+    }
   }
 }
