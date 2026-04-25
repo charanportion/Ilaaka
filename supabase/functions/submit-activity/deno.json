@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "h3-js": "https://esm.sh/h3-js@4.1.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
+    "zod": "https://esm.sh/zod@3"
+  }
+}
