@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { polyfill, h3ToGeoBoundary } from 'h3-js';
+import { polyfill, h3ToGeoBoundary } from 'npm:h3-js@3.7.2';
 
 const H3_RESOLUTION = 11;
 const MAX_CELLS = 50_000;
