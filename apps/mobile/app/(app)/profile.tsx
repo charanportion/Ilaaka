@@ -31,13 +31,19 @@ export default function ProfileScreen() {
       .select('username, display_name, color')
       .eq('id', userId)
       .single()
-      .then(({ data }) => setProfile(data as Profile | null))
-      .catch(() => setProfile(null))
+      .then(({ data, error }) => {
+        if (error) console.error('[profile] fetch error:', JSON.stringify(error));
+        setProfile(data as Profile | null);
+      })
+      .catch((e) => { console.error('[profile] unexpected error:', e); setProfile(null); })
       .finally(() => setProfileLoaded(true));
 
     fetchProfileStats(userId)
       .then(setStats)
-      .catch(() => setStats({ cells_owned: 0, cells_captured_alltime: 0 }));
+      .catch((e) => {
+        console.error('[profile] stats error:', e);
+        setStats({ cells_owned: 0, cells_captured_alltime: 0 });
+      });
   }, [userId]);
 
   return (
