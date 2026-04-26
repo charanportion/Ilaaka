@@ -23,7 +23,7 @@ const BENGALURU: [number, number] = [77.6271, 12.9352]; // [lng, lat] fallback
 const INITIAL_ZOOM = 14;
 const MIN_FETCH_ZOOM = 10;
 const DEBOUNCE_MS = 300;
-const TRACE_COLOR = '#6366F1'; // indigo — matches app theme
+const TRACE_COLOR = '#FC4C02'; // Strava orange — contrasts with any territory color
 
 type LngLatBounds = [number, number, number, number]; // [west, south, east, north]
 
@@ -164,8 +164,8 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
               type="line"
               paint={{
                 'line-color': ['get', 'color'],
-                'line-width': 4,
-                'line-opacity': 1,
+                'line-width': 2,
+                'line-opacity': 0.85,
               }}
             />
           </GeoJSONSource>
@@ -178,8 +178,8 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
               type="line"
               paint={{
                 'line-color': TRACE_COLOR,
-                'line-width': 3,
-                'line-opacity': 0.9,
+                'line-width': 4,
+                'line-opacity': 0.95,
               }}
             />
           </GeoJSONSource>
