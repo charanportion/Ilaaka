@@ -208,7 +208,9 @@ Deno.serve(async (req) => {
     });
 
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown';
+    const message = err instanceof Error ? err.message : String(err);
+    const stack   = err instanceof Error ? err.stack  : undefined;
+    console.error('[submit-activity] capture pipeline failed:', message, stack);
     await admin.from('activities')
       .update({ status: 'failed' })
       .eq('id', activityId);
