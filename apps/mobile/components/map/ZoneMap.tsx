@@ -12,7 +12,8 @@ import type { NativeSyntheticEvent } from 'react-native';
 import type { ViewStateChangeEvent } from '@maplibre/maplibre-react-native';
 import type { PressEventWithFeatures } from '@maplibre/maplibre-react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { fetchZonesInBbox } from '@/lib/zones';
+import { fetchZonesInBbox, fetchMyTracesInBbox } from '@/lib/zones';
+import type { TraceInBbox } from '@/lib/zones';
 import { useAuthStore } from '@/stores/auth-store';
 import { ZoneInfoCard } from './ZoneInfoCard';
 import type { ZoneInBbox } from '@/types/api';
@@ -22,6 +23,7 @@ const BENGALURU: [number, number] = [77.6271, 12.9352]; // [lng, lat] fallback
 const INITIAL_ZOOM = 14;
 const MIN_FETCH_ZOOM = 10;
 const DEBOUNCE_MS = 300;
+const TRACE_COLOR = '#6366F1'; // indigo — matches app theme
 
 type LngLatBounds = [number, number, number, number]; // [west, south, east, north]
 
@@ -36,6 +38,7 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
   const userId = useAuthStore((s) => s.user?.id);
   const [initialCenter, setInitialCenter] = useState<[number, number] | null>(null);
   const [zones, setZones] = useState<ZoneInBbox[]>([]);
+  const [traces, setTraces] = useState<TraceInBbox[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedZone, setSelectedZone] = useState<SelectedZoneProps | null>(null);
   const bboxRef = useRef<LngLatBounds | null>(null);
@@ -52,8 +55,14 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
     cancelRef.current = false;
     setLoading(true);
     try {
-      const data = await fetchZonesInBbox(bounds);
-      if (!cancelRef.current) setZones(data);
+      const [zoneData, traceData] = await Promise.all([
+        fetchZonesInBbox(bounds),
+        fetchMyTracesInBbox(bounds),
+      ]);
+      if (!cancelRef.current) {
+        setZones(zoneData);
+        setTraces(traceData);
+      }
     } catch {
       // silent on the map
     } finally {
@@ -82,7 +91,7 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
 
   const visible = showOnlyMine ? zones.filter((z) => z.owner_id === userId) : zones;
 
-  const fc: GeoJSON.FeatureCollection = {
+  const zoneFc: GeoJSON.FeatureCollection = {
     type: 'FeatureCollection',
     features: visible.map((z) => ({
       type: 'Feature',
@@ -96,6 +105,16 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
         h3_index: z.h3_index,
         is_own: z.owner_id === userId,
       },
+    })),
+  };
+
+  const traceFc: GeoJSON.FeatureCollection = {
+    type: 'FeatureCollection',
+    features: traces.map((t) => ({
+      type: 'Feature',
+      id: t.activity_id,
+      geometry: t.geom as GeoJSON.LineString,
+      properties: {},
     })),
   };
 
@@ -131,8 +150,8 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
         />
         <UserLocation />
 
-        {fc.features.length > 0 && (
-          <GeoJSONSource id="zones" data={fc} onPress={handleZonePress}>
+        {zoneFc.features.length > 0 && (
+          <GeoJSONSource id="zones" data={zoneFc} onPress={handleZonePress}>
             <Layer
               id="zones-fill"
               type="fill"
@@ -148,6 +167,20 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
                 'line-color': ['get', 'color'],
                 'line-width': 1,
                 'line-opacity': 0.8,
+              }}
+            />
+          </GeoJSONSource>
+        )}
+
+        {traceFc.features.length > 0 && (
+          <GeoJSONSource id="traces" data={traceFc}>
+            <Layer
+              id="traces-line"
+              type="line"
+              paint={{
+                'line-color': TRACE_COLOR,
+                'line-width': 3,
+                'line-opacity': 0.9,
               }}
             />
           </GeoJSONSource>

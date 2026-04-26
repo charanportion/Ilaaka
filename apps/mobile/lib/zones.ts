@@ -1,6 +1,12 @@
 import { supabase } from '@/lib/supabase';
 import type { ZoneInBbox } from '@/types/api';
 
+export type TraceInBbox = {
+  activity_id: string;
+  geom: GeoJSON.LineString;
+  created_at: string;
+};
+
 export async function fetchZonesInBbox(
   bbox: [number, number, number, number],
 ): Promise<ZoneInBbox[]> {
@@ -10,6 +16,17 @@ export async function fetchZonesInBbox(
   });
   if (error) throw error;
   return (data ?? []) as ZoneInBbox[];
+}
+
+export async function fetchMyTracesInBbox(
+  bbox: [number, number, number, number],
+): Promise<TraceInBbox[]> {
+  const [min_lng, min_lat, max_lng, max_lat] = bbox;
+  const { data, error } = await supabase.rpc('my_traces_in_bbox', {
+    min_lng, min_lat, max_lng, max_lat,
+  });
+  if (error) throw error;
+  return (data ?? []) as TraceInBbox[];
 }
 
 export async function fetchProfileStats(
