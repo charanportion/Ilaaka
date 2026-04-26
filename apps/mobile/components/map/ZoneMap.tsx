@@ -12,7 +12,7 @@ import type { NativeSyntheticEvent } from 'react-native';
 import type { ViewStateChangeEvent } from '@maplibre/maplibre-react-native';
 import type { PressEventWithFeatures } from '@maplibre/maplibre-react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { fetchMergedZonesInBbox, fetchMyTracesInBbox } from '@/lib/zones';
+import { fetchZonePolygonsInBbox, fetchMyTracesInBbox } from '@/lib/zones';
 import type { TraceInBbox } from '@/lib/zones';
 import { useAuthStore } from '@/stores/auth-store';
 import { ZoneInfoCard } from './ZoneInfoCard';
@@ -56,7 +56,7 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
     setLoading(true);
     try {
       const [zoneData, traceData] = await Promise.all([
-        fetchMergedZonesInBbox(bounds),
+        fetchZonePolygonsInBbox(bounds),
         fetchMyTracesInBbox(bounds),
       ]);
       if (!cancelRef.current) {

@@ -40,6 +40,17 @@ export async function fetchMergedZonesInBbox(
   return (data ?? []) as MergedZoneInBbox[];
 }
 
+export async function fetchZonePolygonsInBbox(
+  bbox: [number, number, number, number],
+): Promise<MergedZoneInBbox[]> {
+  const [min_lng, min_lat, max_lng, max_lat] = bbox;
+  const { data, error } = await supabase.rpc('zone_polygons_in_bbox', {
+    min_lng, min_lat, max_lng, max_lat,
+  });
+  if (error) throw error;
+  return (data ?? []) as MergedZoneInBbox[];
+}
+
 export async function fetchProfileStats(
   userId: string,
 ): Promise<{ cells_owned: number; cells_captured_alltime: number }> {

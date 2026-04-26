@@ -4,6 +4,7 @@ import { polyfill, h3ToGeoBoundary } from 'npm:h3-js@3.7.2';
 
 const H3_RESOLUTION = 11;
 const MAX_CELLS = 50_000;
+const MAPBOX_MATCH_MAX_COORDS = 100; // Mapbox Map Matching API per-request limit
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -68,6 +69,39 @@ function boundaryToWkt(boundary: [number, number][]): string {
     .map(([lat, lng]) => `${lng} ${lat}`)
     .join(', ');
   return `POLYGON((${ring}))`;
+}
+
+// Evenly-spaced subset; Mapbox Matching caps at 100 coords per request.
+function downsampleCoords(coords: [number, number][], maxPoints: number): [number, number][] {
+  if (coords.length <= maxPoints) return coords;
+  const step = (coords.length - 1) / (maxPoints - 1);
+  const out: [number, number][] = [];
+  for (let i = 0; i < maxPoints; i++) out.push(coords[Math.round(i * step)]);
+  return out;
+}
+
+type LineStringGeoJson = { type: 'LineString'; coordinates: [number, number][] };
+
+// Snap raw GPS to the OSM road graph via Mapbox Matching API.
+// Returns null on any failure — caller treats matching as best-effort.
+async function matchToRoads(coords: [number, number][]): Promise<LineStringGeoJson | null> {
+  const token = Deno.env.get('MAPBOX_TOKEN');
+  if (!token) return null;
+  const sampled = downsampleCoords(coords, MAPBOX_MATCH_MAX_COORDS);
+  if (sampled.length < 2) return null;
+  const path = sampled.map(([lng, lat]) => `${lng.toFixed(6)},${lat.toFixed(6)}`).join(';');
+  const radiuses = sampled.map(() => 25).join(';'); // 25m search radius per point
+  const url =
+    `https://api.mapbox.com/matching/v5/mapbox/walking/${path}` +
+    `?geometries=geojson&overview=full&radiuses=${radiuses}&access_token=${token}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.matchings?.[0]?.geometry ?? null;
+  } catch {
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -200,6 +234,20 @@ Deno.serve(async (req) => {
 
     const result = (captureResult as { cells_captured: number; displaced: { owner_id: string; count: number }[] }[])?.[0]
       ?? { cells_captured: 0, displaced: [] };
+
+    // Best-effort: snap raw GPS to roads via Mapbox so the map shows a clean
+    // street-following polyline. Never fail the request if matching errors.
+    try {
+      const matchedGeom = await matchToRoads(coords);
+      if (matchedGeom) {
+        await admin.rpc('set_matched_trace', {
+          p_activity_id:     activityId,
+          p_matched_geojson: matchedGeom,
+        });
+      }
+    } catch (e) {
+      console.error('[submit-activity] map-matching failed:', e instanceof Error ? e.message : e);
+    }
 
     return json({
       activity_id:    activityId,
