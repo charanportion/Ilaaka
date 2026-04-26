@@ -86,20 +86,41 @@ type LineStringGeoJson = { type: 'LineString'; coordinates: [number, number][] }
 // Returns null on any failure — caller treats matching as best-effort.
 async function matchToRoads(coords: [number, number][]): Promise<LineStringGeoJson | null> {
   const token = Deno.env.get('MAPBOX_TOKEN');
-  if (!token) return null;
+  if (!token) {
+    console.log('[match] MAPBOX_TOKEN not set in Edge Function environment');
+    return null;
+  }
   const sampled = downsampleCoords(coords, MAPBOX_MATCH_MAX_COORDS);
-  if (sampled.length < 2) return null;
+  if (sampled.length < 2) {
+    console.log('[match] sampled <2 points, skipping');
+    return null;
+  }
   const path = sampled.map(([lng, lat]) => `${lng.toFixed(6)},${lat.toFixed(6)}`).join(';');
-  const radiuses = sampled.map(() => 25).join(';'); // 25m search radius per point
+  const radiuses = sampled.map(() => 50).join(';'); // 50m radius — generous for sparse OSM
   const url =
     `https://api.mapbox.com/matching/v5/mapbox/walking/${path}` +
-    `?geometries=geojson&overview=full&radiuses=${radiuses}&access_token=${token}`;
+    `?geometries=geojson&overview=full&radiuses=${radiuses}&tidy=true&access_token=${token}`;
   try {
     const res = await fetch(url);
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.matchings?.[0]?.geometry ?? null;
-  } catch {
+    const bodyText = await res.text();
+    if (!res.ok) {
+      console.log(`[match] HTTP ${res.status}: ${bodyText.slice(0, 400)}`);
+      return null;
+    }
+    const data = JSON.parse(bodyText);
+    if (data.code !== 'Ok') {
+      console.log(`[match] mapbox code=${data.code} msg=${data.message ?? ''}`);
+      return null;
+    }
+    const geom = data.matchings?.[0]?.geometry;
+    if (!geom) {
+      console.log('[match] response had no matched geometry');
+      return null;
+    }
+    console.log(`[match] success: input=${coords.length} sampled=${sampled.length} matched=${geom.coordinates?.length}`);
+    return geom;
+  } catch (e) {
+    console.log('[match] fetch threw:', e instanceof Error ? e.message : String(e));
     return null;
   }
 }
