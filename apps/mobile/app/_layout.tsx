@@ -4,6 +4,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/stores/auth-store';
 import { initSentry } from '@/lib/sentry';
 import { initAnalytics } from '@/lib/analytics';
 
@@ -15,15 +16,17 @@ export default function RootLayout() {
   const [loaded, setLoaded] = useState(false);
   const router = useRouter();
   const segments = useSegments();
+  const setStoreSession = useAuthStore((s) => s.setSession);
 
   useEffect(() => {
     supabase.auth.getSession()
-      .then(({ data: { session: s } }) => setSession(s))
+      .then(({ data: { session: s } }) => { setSession(s); setStoreSession(s); })
       .catch(() => {/* treat failed session check as logged out */})
       .finally(() => setLoaded(true));
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
+      setStoreSession(s);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
