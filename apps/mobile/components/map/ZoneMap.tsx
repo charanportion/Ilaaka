@@ -12,8 +12,7 @@ import type { NativeSyntheticEvent } from 'react-native';
 import type { ViewStateChangeEvent } from '@maplibre/maplibre-react-native';
 import type { PressEventWithFeatures } from '@maplibre/maplibre-react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { fetchZonePolygonsInBbox, fetchMyTracesInBbox } from '@/lib/zones';
-import type { TraceInBbox } from '@/lib/zones';
+import { fetchZonePolygonsInBbox } from '@/lib/zones';
 import { useAuthStore } from '@/stores/auth-store';
 import { ZoneInfoCard } from './ZoneInfoCard';
 import type { MergedZoneInBbox } from '@/types/api';
@@ -23,7 +22,6 @@ const BENGALURU: [number, number] = [77.6271, 12.9352]; // [lng, lat] fallback
 const INITIAL_ZOOM = 14;
 const MIN_FETCH_ZOOM = 10;
 const DEBOUNCE_MS = 300;
-const TRACE_COLOR = '#FC4C02'; // Strava orange — contrasts with any territory color
 
 type LngLatBounds = [number, number, number, number]; // [west, south, east, north]
 
@@ -38,7 +36,6 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
   const userId = useAuthStore((s) => s.user?.id);
   const [initialCenter, setInitialCenter] = useState<[number, number] | null>(null);
   const [zones, setZones] = useState<MergedZoneInBbox[]>([]);
-  const [traces, setTraces] = useState<TraceInBbox[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedZone, setSelectedZone] = useState<SelectedZoneProps | null>(null);
   const bboxRef = useRef<LngLatBounds | null>(null);
@@ -55,14 +52,8 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
     cancelRef.current = false;
     setLoading(true);
     try {
-      const [zoneData, traceData] = await Promise.all([
-        fetchZonePolygonsInBbox(bounds),
-        fetchMyTracesInBbox(bounds),
-      ]);
-      if (!cancelRef.current) {
-        setZones(zoneData);
-        setTraces(traceData);
-      }
+      const zoneData = await fetchZonePolygonsInBbox(bounds);
+      if (!cancelRef.current) setZones(zoneData);
     } catch {
       // silent on the map
     } finally {
@@ -104,16 +95,6 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
         captured_at: z.captured_at,
         is_own: z.owner_id === userId,
       },
-    })),
-  };
-
-  const traceFc: GeoJSON.FeatureCollection = {
-    type: 'FeatureCollection',
-    features: traces.map((t) => ({
-      type: 'Feature',
-      id: t.activity_id,
-      geometry: t.geom as GeoJSON.LineString,
-      properties: {},
     })),
   };
 
@@ -164,22 +145,8 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
               type="line"
               paint={{
                 'line-color': ['get', 'color'],
-                'line-width': 2,
-                'line-opacity': 0.85,
-              }}
-            />
-          </GeoJSONSource>
-        )}
-
-        {traceFc.features.length > 0 && (
-          <GeoJSONSource id="traces" data={traceFc}>
-            <Layer
-              id="traces-line"
-              type="line"
-              paint={{
-                'line-color': TRACE_COLOR,
                 'line-width': 4,
-                'line-opacity': 0.95,
+                'line-opacity': 1,
               }}
             />
           </GeoJSONSource>
