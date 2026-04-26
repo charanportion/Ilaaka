@@ -156,7 +156,7 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
               type="fill"
               paint={{
                 'fill-color': ['get', 'color'],
-                'fill-opacity': ['case', ['boolean', ['get', 'is_own'], false], 0.55, 0.3],
+                'fill-opacity': ['case', ['boolean', ['get', 'is_own'], false], 0.18, 0.1],
               }}
             />
             <Layer
@@ -164,8 +164,8 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
               type="line"
               paint={{
                 'line-color': ['get', 'color'],
-                'line-width': 1,
-                'line-opacity': 0.8,
+                'line-width': 4,
+                'line-opacity': 1,
               }}
             />
           </GeoJSONSource>
