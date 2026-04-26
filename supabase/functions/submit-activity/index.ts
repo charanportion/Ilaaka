@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { polygonToCells, cellToBoundary } from 'h3-js';
+import { polyfill, h3ToGeoBoundary } from 'h3-js';
 
 const H3_RESOLUTION = 11;
 const MAX_CELLS = 50_000;
@@ -168,11 +168,11 @@ Deno.serve(async (req) => {
     );
     if (polyErr || !polygonGeoJson) throw new Error(polyErr?.message ?? 'polygon_failed');
 
-    // 2. Compute H3 cells via h3-js
-    //    PostGIS ST_AsGeoJSON returns [lng, lat]; h3-js needs [lat, lng]
+    // 2. Compute H3 cells via h3-js v3 (pure JS, no WASM)
+    //    PostGIS ST_AsGeoJSON returns [lng, lat]; h3-js v3 polyfill needs [lat, lng]
     const geoJsonRing = (polygonGeoJson as { coordinates: [number, number][][] }).coordinates[0];
     const h3Outer = geoJsonRing.map(([lng, lat]: [number, number]) => [lat, lng] as [number, number]);
-    const cells: string[] = polygonToCells({ outer: h3Outer }, H3_RESOLUTION);
+    const cells: string[] = polyfill(h3Outer, H3_RESOLUTION);
 
     if (cells.length > MAX_CELLS) {
       await admin.from('activities')
@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
     //    cellToBoundary returns [lat, lng][]; WKT needs lng lat
     const cellDecimals = cells.map(h3ToBigIntStr);
     const boundaryWkts = cells.map(cell => {
-      const boundary = cellToBoundary(cell) as [number, number][];
+      const boundary = h3ToGeoBoundary(cell) as [number, number][];
       return boundaryToWkt(boundary);
     });
 
