@@ -12,11 +12,11 @@ import type { NativeSyntheticEvent } from 'react-native';
 import type { ViewStateChangeEvent } from '@maplibre/maplibre-react-native';
 import type { PressEventWithFeatures } from '@maplibre/maplibre-react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { fetchZonesInBbox, fetchMyTracesInBbox } from '@/lib/zones';
+import { fetchMergedZonesInBbox, fetchMyTracesInBbox } from '@/lib/zones';
 import type { TraceInBbox } from '@/lib/zones';
 import { useAuthStore } from '@/stores/auth-store';
 import { ZoneInfoCard } from './ZoneInfoCard';
-import type { ZoneInBbox } from '@/types/api';
+import type { MergedZoneInBbox } from '@/types/api';
 
 const OSM_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const BENGALURU: [number, number] = [77.6271, 12.9352]; // [lng, lat] fallback
@@ -37,7 +37,7 @@ type SelectedZoneProps = {
 export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
   const userId = useAuthStore((s) => s.user?.id);
   const [initialCenter, setInitialCenter] = useState<[number, number] | null>(null);
-  const [zones, setZones] = useState<ZoneInBbox[]>([]);
+  const [zones, setZones] = useState<MergedZoneInBbox[]>([]);
   const [traces, setTraces] = useState<TraceInBbox[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedZone, setSelectedZone] = useState<SelectedZoneProps | null>(null);
@@ -56,7 +56,7 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
     setLoading(true);
     try {
       const [zoneData, traceData] = await Promise.all([
-        fetchZonesInBbox(bounds),
+        fetchMergedZonesInBbox(bounds),
         fetchMyTracesInBbox(bounds),
       ]);
       if (!cancelRef.current) {
@@ -95,14 +95,13 @@ export function ZoneMap({ showOnlyMine }: { showOnlyMine: boolean }) {
     type: 'FeatureCollection',
     features: visible.map((z) => ({
       type: 'Feature',
-      id: z.h3_index,
-      geometry: z.geom as GeoJSON.Polygon,
+      id: z.owner_id,
+      geometry: z.geom as GeoJSON.Polygon | GeoJSON.MultiPolygon,
       properties: {
         color: z.owner_color,
         owner_id: z.owner_id,
         owner_username: z.owner_username,
         captured_at: z.captured_at,
-        h3_index: z.h3_index,
         is_own: z.owner_id === userId,
       },
     })),

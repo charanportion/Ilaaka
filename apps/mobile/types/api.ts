@@ -29,3 +29,11 @@ export type ZoneInBbox = {
   captured_at: string;
   geom: GeoJSON.Polygon;
 };
+
+export type MergedZoneInBbox = {
+  owner_id: string;
+  owner_username: string;
+  owner_color: string;
+  captured_at: string;
+  geom: GeoJSON.Polygon | GeoJSON.MultiPolygon;
+};

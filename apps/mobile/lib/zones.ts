@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { ZoneInBbox } from '@/types/api';
+import type { ZoneInBbox, MergedZoneInBbox } from '@/types/api';
 
 export type TraceInBbox = {
   activity_id: string;
@@ -27,6 +27,17 @@ export async function fetchMyTracesInBbox(
   });
   if (error) throw error;
   return (data ?? []) as TraceInBbox[];
+}
+
+export async function fetchMergedZonesInBbox(
+  bbox: [number, number, number, number],
+): Promise<MergedZoneInBbox[]> {
+  const [min_lng, min_lat, max_lng, max_lat] = bbox;
+  const { data, error } = await supabase.rpc('zones_merged_in_bbox', {
+    min_lng, min_lat, max_lng, max_lat,
+  });
+  if (error) throw error;
+  return (data ?? []) as MergedZoneInBbox[];
 }
 
 export async function fetchProfileStats(
