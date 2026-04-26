@@ -53,11 +53,11 @@ export async function fetchZonePolygonsInBbox(
 
 export async function fetchProfileStats(
   userId: string,
-): Promise<{ cells_owned: number; cells_captured_alltime: number }> {
+): Promise<{ distance_walked_m: number; area_captured_m2: number }> {
   const { data, error } = await supabase.rpc('profile_zone_stats', {
     p_user_id: userId,
   });
   if (error) throw error;
-  const row = (data as { cells_owned: number; cells_captured_alltime: number }[] | null)?.[0];
-  return row ?? { cells_owned: 0, cells_captured_alltime: 0 };
+  const row = (data as { distance_walked_m: number; area_captured_m2: number }[] | null)?.[0];
+  return row ?? { distance_walked_m: 0, area_captured_m2: 0 };
 }

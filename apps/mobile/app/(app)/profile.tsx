@@ -13,9 +13,19 @@ type Profile = {
 };
 
 type Stats = {
-  cells_owned: number;
-  cells_captured_alltime: number;
+  distance_walked_m: number;
+  area_captured_m2: number;
 };
+
+function formatDistance(m: number): string {
+  if (m < 1000) return `${Math.round(m)} m`;
+  return `${(m / 1000).toFixed(2)} km`;
+}
+
+function formatArea(m2: number): string {
+  if (m2 < 10_000) return `${m2.toLocaleString()} m²`;
+  return `${(m2 / 10_000).toFixed(2)} ha`;
+}
 
 export default function ProfileScreen() {
   const userId = useAuthStore((s) => s.user?.id);
@@ -42,7 +52,7 @@ export default function ProfileScreen() {
       .then(setStats)
       .catch((e) => {
         console.error('[profile] stats error:', e);
-        setStats({ cells_owned: 0, cells_captured_alltime: 0 });
+        setStats({ distance_walked_m: 0, area_captured_m2: 0 });
       });
   }, [userId]);
 
@@ -80,13 +90,13 @@ export default function ProfileScreen() {
           {stats ? (
             <View className="flex-row">
               <View className="flex-1 items-center">
-                <Text className="text-3xl font-bold text-indigo-600">{stats.cells_owned}</Text>
-                <Text className="text-xs text-gray-500 mt-1">Hexes owned</Text>
+                <Text className="text-2xl font-bold text-indigo-600">{formatDistance(stats.distance_walked_m)}</Text>
+                <Text className="text-xs text-gray-500 mt-1">Distance walked</Text>
               </View>
               <View className="w-px bg-gray-100" />
               <View className="flex-1 items-center">
-                <Text className="text-3xl font-bold text-indigo-600">{stats.cells_captured_alltime}</Text>
-                <Text className="text-xs text-gray-500 mt-1">Captured all-time</Text>
+                <Text className="text-2xl font-bold text-indigo-600">{formatArea(stats.area_captured_m2)}</Text>
+                <Text className="text-xs text-gray-500 mt-1">Area captured</Text>
               </View>
             </View>
           ) : (
