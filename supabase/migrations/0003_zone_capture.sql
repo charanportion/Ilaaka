@@ -64,11 +64,12 @@ begin
   v_start := st_startpoint(v_simplified);
   v_end   := st_endpoint(v_simplified);
 
-  if st_distance(v_start::geography, v_end::geography) < 30 then
-    -- Closed loop: seal it into a polygon
+  if st_distance(v_start::geography, v_end::geography) < 30
+     and st_numpoints(v_simplified) >= 4 then
+    -- Closed loop with enough points: seal into a polygon
     v_polygon := st_makepolygon(st_addpoint(v_simplified, v_start));
   else
-    -- Open route: 25 m corridor
+    -- Open route or too few points for a ring: 25 m corridor
     v_polygon := st_buffer(v_simplified::geography, 25)::geometry;
   end if;
 
