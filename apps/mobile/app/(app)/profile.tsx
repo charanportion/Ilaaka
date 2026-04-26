@@ -20,6 +20,7 @@ type Stats = {
 export default function ProfileScreen() {
   const userId = useAuthStore((s) => s.user?.id);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
@@ -30,9 +31,13 @@ export default function ProfileScreen() {
       .select('username, display_name, color')
       .eq('id', userId)
       .single()
-      .then(({ data }) => { if (data) setProfile(data as Profile); });
+      .then(({ data }) => setProfile(data as Profile | null))
+      .catch(() => setProfile(null))
+      .finally(() => setProfileLoaded(true));
 
-    fetchProfileStats(userId).then(setStats);
+    fetchProfileStats(userId)
+      .then(setStats)
+      .catch(() => setStats({ cells_owned: 0, cells_captured_alltime: 0 }));
   }, [userId]);
 
   return (
@@ -41,7 +46,9 @@ export default function ProfileScreen() {
 
         {/* Header */}
         <View className="items-center mb-8">
-          {profile ? (
+          {!profileLoaded ? (
+            <ActivityIndicator color="#6366F1" />
+          ) : profile ? (
             <>
               <View
                 className="w-16 h-16 rounded-full mb-3 items-center justify-center"
@@ -55,7 +62,7 @@ export default function ProfileScreen() {
               <Text className="text-sm text-gray-400">@{profile.username}</Text>
             </>
           ) : (
-            <ActivityIndicator color="#6366F1" />
+            <Text className="text-gray-400 text-sm">Profile unavailable</Text>
           )}
         </View>
 
