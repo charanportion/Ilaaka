@@ -1,17 +1,23 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
+import { Maximize2, Minimize2 } from 'lucide-react-native';
 import { useActivityStore } from '@/stores/activity-store';
+import { useAuthStore } from '@/stores/auth-store';
 import { startTracking, stopTracking } from '@/lib/location';
 import { submitActivity } from '@/lib/submit-activity';
 import { markPendingSubmitted } from '@/db/trace-buffer';
 import { ActivityTypePicker } from '@/components/activity/ActivityTypePicker';
 import { RecorderControls } from '@/components/activity/RecorderControls';
 import { PostActivityCard } from '@/components/activity/PostActivityCard';
+import { SaveActivitySheet } from '@/components/activity/SaveActivitySheet';
+import { RecorderMap } from '@/components/recorder/RecorderMap';
+import { capture } from '@/lib/analytics';
 import type { SubmissionState } from '@/components/activity/PostActivityCard';
-import type { ActivityType, SubmitActivityResponse } from '@/types/api';
+import type { ActivityMetadata, ActivityType, SubmitActivityResponse } from '@/types/api';
 
-type Screen = 'idle' | 'recording' | 'summary';
+type Screen = 'idle' | 'recording' | 'metadata' | 'summary';
 
 function formatDuration(s: number): string {
   const h = Math.floor(s / 3600);
@@ -39,17 +45,27 @@ export default function RecordScreen() {
     reset,
     loadPending,
   } = useActivityStore();
+  const userId = useAuthStore((s) => s.user?.id);
+  const primaryActivity = useAuthStore((s) => s.profile?.primary_activity);
 
   const [screen, setScreen] = useState<Screen>('idle');
-  const [localType, setLocalType] = useState<ActivityType>('run');
+  const [localType, setLocalType] = useState<ActivityType>(primaryActivity ?? 'walk');
   const [submissionState, setSubmissionState] = useState<SubmissionState>('idle');
   const [submissionResult, setSubmissionResult] = useState<SubmitActivityResponse | undefined>();
   const [submissionError, setSubmissionError] = useState<string | undefined>();
+  const [initialCenter, setInitialCenter] = useState<[number, number] | null>(null);
+  const [expanded, setExpanded] = useState(false);
   // Force a re-render every second so duration ticks even between GPS arrivals
   const [, setTick] = useState(0);
 
   useEffect(() => {
     loadPending();
+    // Best-effort one-shot for the map's initial center. The map will follow the
+    // live UserLocation once recording starts; this is just so the idle screen
+    // doesn't show an empty/wrong-region map while we wait for the first sample.
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      .then((pos) => setInitialCenter([pos.coords.longitude, pos.coords.latitude]))
+      .catch(() => {/* permission denied or no fix yet — map renders a spinner */});
   }, []);
 
   // 1-second heartbeat while actively recording (not paused)
@@ -81,23 +97,33 @@ export default function RecordScreen() {
   }
 
   async function handleStop() {
-    // Batch store update + screen transition in the same render — no intermediate state
+    // Batch store update + screen transition in the same render — no intermediate state.
+    // Goes straight to the metadata sheet; submission happens once the user taps Publish.
     stop();
-    setScreen('summary');
+    setScreen('metadata');
     resetSubmissionState();
-    // Defer GPS watcher removal until after React has committed the summary screen,
-    // so the final location callback (if any) doesn't fire into a transitioning tree
+    // Defer GPS watcher removal until after React has committed the metadata screen,
+    // so the final location callback (if any) doesn't fire into a transitioning tree.
     await stopTracking();
   }
 
-  async function handleSave() {
+  async function handlePublish(metadata: ActivityMetadata) {
     if (!localId || !startedAt) return;
+    setScreen('summary');
     setSubmissionState('submitting');
     try {
-      const result = await submitActivity(localId, type, startedAt);
+      const result = await submitActivity(localId, type, startedAt, metadata);
       markPendingSubmitted(localId);
       setSubmissionResult(result);
       setSubmissionState('success');
+      capture('activity_published', {
+        activity_id:   result.activity_id,
+        visibility:    metadata.visibility ?? 'public',
+        has_title:     !!metadata.title,
+        has_photos:    (metadata.photo_paths?.length ?? 0) > 0,
+        hide_pace:     !!metadata.hide_pace,
+        hide_calories: !!metadata.hide_calories,
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'submit_failed';
       setSubmissionError(friendlyError(msg));
@@ -106,7 +132,9 @@ export default function RecordScreen() {
   }
 
   async function handleRetry() {
-    await handleSave();
+    // Retry uses the same metadata the user already filled in. We don't keep a copy
+    // around for v1, so fall back to publishing with no metadata defaults.
+    await handlePublish({});
   }
 
   function handleDone() {
@@ -134,6 +162,46 @@ export default function RecordScreen() {
     }
   }
 
+  if (screen === 'metadata') {
+    if (!userId || !localId || !startedAt) {
+      // Defensive — these are set the moment recording starts. If we somehow
+      // reach this screen without them, fall back to the result card so the
+      // user has a way to discard.
+      return (
+        <SafeAreaView className="flex-1 bg-gray-50 justify-center">
+          <PostActivityCard
+            type={type}
+            distanceM={distanceM}
+            durationS={durationS}
+            pointCount={points.length}
+            submissionState="idle"
+            submissionResult={submissionResult}
+            submissionError={submissionError}
+            onSave={() => {/* unreachable */}}
+            onRetry={handleRetry}
+            onDiscard={handleDiscard}
+            onDone={handleDone}
+          />
+        </SafeAreaView>
+      );
+    }
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <SaveActivitySheet
+          userId={userId}
+          localId={localId}
+          type={type}
+          startedAt={startedAt}
+          distanceM={distanceM}
+          durationS={durationS}
+          publishing={submissionState === 'submitting'}
+          onPublish={handlePublish}
+          onDiscard={handleDiscard}
+        />
+      </SafeAreaView>
+    );
+  }
+
   if (screen === 'summary') {
     return (
       <SafeAreaView className="flex-1 bg-gray-50 justify-center">
@@ -145,7 +213,7 @@ export default function RecordScreen() {
           submissionState={submissionState}
           submissionResult={submissionResult}
           submissionError={submissionError}
-          onSave={handleSave}
+          onSave={() => {/* metadata flow handles save; never invoked */}}
           onRetry={handleRetry}
           onDiscard={handleDiscard}
           onDone={handleDone}
@@ -169,48 +237,127 @@ export default function RecordScreen() {
         ? liveDurationS / 60 / (distanceM / 1000)
         : null;
 
-    return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-1 items-center justify-center gap-10 px-6">
-          <View className="items-center">
-            <Text className="text-7xl font-bold text-gray-900 tabular-nums">
-              {(distanceM / 1000).toFixed(2)}
-            </Text>
-            <Text className="text-xl text-gray-400 mt-1">km</Text>
-          </View>
+    const paceLabel =
+      paceMinKm !== null
+        ? `${Math.floor(paceMinKm)}:${String(Math.round((paceMinKm % 1) * 60)).padStart(2, '0')}`
+        : '--:--';
 
-          <View className="items-center">
-            <Text className="text-4xl font-semibold text-gray-600 tabular-nums">
-              {formatDuration(liveDurationS)}
-            </Text>
-            <Text className="text-sm text-gray-400 mt-1">duration</Text>
-          </View>
+    // ── Expanded (no map) — big metrics view ──────────────────────────────────
+    if (expanded) {
+      return (
+        <View className="flex-1 bg-gray-900">
+          <SafeAreaView edges={['top']}>
+            <View className={`px-5 py-4 ${isPaused ? 'bg-amber-400' : 'bg-gray-900'}`}>
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1">
+                  {isPaused && (
+                    <Text className="text-gray-900 font-semibold text-sm text-center mb-1">
+                      Paused
+                    </Text>
+                  )}
+                  <Text className={`text-center text-4xl font-bold tabular-nums ${isPaused ? 'text-gray-900' : 'text-white'}`}>
+                    {formatDuration(liveDurationS)}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setExpanded(false)} hitSlop={12} className="absolute right-0 top-2">
+                  <Minimize2 size={20} color={isPaused ? '#1F2937' : '#FFFFFF'} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </SafeAreaView>
 
-          {paceMinKm !== null && (
+          <View className="flex-1 items-center justify-center gap-12 px-6">
             <View className="items-center">
-              <Text className="text-2xl text-gray-600 tabular-nums">
-                {Math.floor(paceMinKm)}:{String(Math.round((paceMinKm % 1) * 60)).padStart(2, '0')}
+              <Text className="text-white text-7xl font-bold tabular-nums">
+                {(distanceM / 1000).toFixed(2)}
               </Text>
-              <Text className="text-sm text-gray-400 mt-1">min/km pace</Text>
+              <Text className="text-gray-400 text-base mt-2">Distance (km)</Text>
             </View>
-          )}
-
-          {isPaused && (
-            <View className="bg-amber-100 px-6 py-2 rounded-full">
-              <Text className="text-amber-700 font-semibold text-base">Paused</Text>
+            <View className="items-center">
+              <Text className="text-white text-5xl font-bold tabular-nums">
+                {paceLabel}
+              </Text>
+              <Text className="text-gray-400 text-base mt-2">min/km pace</Text>
             </View>
-          )}
+          </View>
 
-          <RecorderControls
-            isRecording={isRecording}
-            isPaused={isPaused}
-            onStart={handleStart}
-            onPause={pause}
-            onResume={resume}
-            onStop={handleStop}
-          />
+          <SafeAreaView edges={['bottom']}>
+            <View className="px-4 pb-2 items-center">
+              <RecorderControls
+                isRecording={isRecording}
+                isPaused={isPaused}
+                onStart={handleStart}
+                onPause={pause}
+                onResume={resume}
+                onStop={handleStop}
+              />
+            </View>
+          </SafeAreaView>
         </View>
-      </SafeAreaView>
+      );
+    }
+
+    // ── Compact — map + docked stats card ─────────────────────────────────────
+    return (
+      <View className="flex-1 bg-gray-50">
+        <RecorderMap
+          points={points}
+          isFollowing={!isPaused}
+          initialCenter={initialCenter}
+        />
+
+        <SafeAreaView edges={['bottom']} style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }} pointerEvents="box-none">
+          {/* Paused banner — sits flush on top of the stats card */}
+          {isPaused && (
+            <View className="mx-4 bg-amber-400 rounded-t-2xl px-5 py-2">
+              <Text className="text-gray-900 font-bold text-sm text-center">Paused</Text>
+            </View>
+          )}
+
+          {/* Stats card */}
+          <View className={`mx-4 mb-3 bg-gray-900/95 px-5 py-4 ${isPaused ? 'rounded-b-2xl' : 'rounded-2xl'}`}>
+            <View className="flex-row items-center mb-2">
+              <Text className="flex-1 text-center text-white/70 text-sm font-semibold">
+                {type[0].toUpperCase() + type.slice(1)}
+              </Text>
+              <TouchableOpacity onPress={() => setExpanded(true)} hitSlop={10} className="absolute right-0">
+                <Maximize2 size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+            <View className="flex-row">
+              <View className="flex-1 items-center">
+                <Text className="text-white text-2xl font-bold tabular-nums">
+                  {formatDuration(liveDurationS)}
+                </Text>
+                <Text className="text-white/60 text-xs mt-1">Time</Text>
+              </View>
+              <View className="flex-1 items-center">
+                <Text className="text-white text-3xl font-bold tabular-nums">
+                  {(distanceM / 1000).toFixed(2)}
+                </Text>
+                <Text className="text-white/60 text-xs mt-1">Distance (km)</Text>
+              </View>
+              <View className="flex-1 items-center">
+                <Text className="text-white text-2xl font-bold tabular-nums">
+                  {paceLabel}
+                </Text>
+                <Text className="text-white/60 text-xs mt-1">min/km</Text>
+              </View>
+            </View>
+          </View>
+
+          <View className="px-4 pb-2 items-center">
+            <RecorderControls
+              isRecording={isRecording}
+              isPaused={isPaused}
+              onStart={handleStart}
+              onPause={pause}
+              onResume={resume}
+              onStop={handleStop}
+            />
+          </View>
+        </SafeAreaView>
+      </View>
     );
   }
 

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { polyfill, h3ToGeoBoundary } from 'npm:h3-js@3.7.2';
+import { sendExpoPush } from '../_shared/expo-push.ts';
 
 const H3_RESOLUTION = 11;
 const MAX_CELLS = 50_000;
@@ -24,6 +25,15 @@ const SubmitSchema = z.object({
     accuracy_m: z.array(z.number()),
   }),
   client_calories: z.number().int().positive().optional(),
+  // Phase 7 metadata — all optional for back-compat with older clients.
+  title:         z.string().min(1).max(80).optional(),
+  description:   z.string().max(2000).optional(),
+  visibility:    z.enum(['public', 'followers', 'private']).optional(),
+  hide_pace:     z.boolean().optional(),
+  hide_calories: z.boolean().optional(),
+  // Storage paths the client already uploaded under <user_id>/draft/<local_id>/<i>.<ext>.
+  // The Edge Function moves them into <user_id>/<activity_id>/<i>.<ext> after the row is created.
+  photo_paths:   z.array(z.string().min(1)).max(5).optional(),
 });
 
 function json(body: unknown, status = 200) {
@@ -125,6 +135,133 @@ async function matchToRoads(coords: [number, number][]): Promise<LineStringGeoJs
   }
 }
 
+// ── Push fan-out ────────────────────────────────────────────────────────────────
+
+type DisplacedEntry = { owner_id: string; count: number };
+
+async function fanOutNotifications(
+  // deno-lint-ignore no-explicit-any
+  admin: any,
+  opts: {
+    activityId:   string;
+    actorUserId:  string;
+    cellsCaptured: number;
+    displaced:    DisplacedEntry[];
+  },
+): Promise<void> {
+  const { activityId, actorUserId, cellsCaptured, displaced } = opts;
+
+  // Resolve actor display fields (one lookup)
+  const { data: actorProfile } = await admin
+    .from('profiles')
+    .select('username, display_name')
+    .eq('id', actorUserId)
+    .single();
+  const actorUsername    = actorProfile?.username    ?? 'Someone';
+  const actorDisplayName = actorProfile?.display_name ?? actorUsername;
+
+  const messages: Parameters<typeof sendExpoPush>[0] = [];
+  const queuedTokens = new Set<string>();
+
+  // 1. Steal notifications — one push per displaced owner
+  for (const d of displaced) {
+    if (!d.count) continue;
+    const { data: tokenRows } = await admin
+      .from('push_tokens')
+      .select('token')
+      .eq('user_id', d.owner_id);
+    for (const row of tokenRows ?? []) {
+      if (queuedTokens.has(row.token)) continue;
+      queuedTokens.add(row.token);
+      messages.push({
+        to:        row.token,
+        title:     `${actorUsername} stole your zones`,
+        body:      `You lost ${d.count} hex${d.count === 1 ? '' : 'es'}. Take them back.`,
+        data:      { type: 'zone_stolen', activity_id: activityId, owner_id: actorUserId },
+        channelId: 'steals',
+        priority:  'high',
+        sound:     'default',
+      });
+    }
+  }
+
+  // 2. Friend-capture notifications — notify followers (skip if too few cells)
+  if (cellsCaptured >= 3) {
+    const { data: followerRows } = await admin.rpc('followers_for_owner', {
+      p_owner_id: actorUserId,
+    });
+    const followerIds: string[] = (followerRows ?? []).map((r: { follower_id: string }) => r.follower_id);
+    if (followerIds.length > 0) {
+      const { data: tokenRows } = await admin
+        .from('push_tokens')
+        .select('token, user_id')
+        .in('user_id', followerIds);
+      for (const row of tokenRows ?? []) {
+        if (queuedTokens.has(row.token)) continue; // steal already queued for this token
+        queuedTokens.add(row.token);
+        messages.push({
+          to:        row.token,
+          title:     `${actorUsername} captured zones near you`,
+          body:      `${actorDisplayName} just claimed ${cellsCaptured} hexes nearby`,
+          data:      { type: 'friend_capture', activity_id: activityId, owner_id: actorUserId },
+          channelId: 'friends',
+          priority:  'high',
+          sound:     'default',
+        });
+      }
+    }
+  }
+
+  if (messages.length > 0) {
+    await sendExpoPush(messages, admin);
+    console.log(`[push] sent: { steals: ${displaced.length}, friends: ${Math.max(0, messages.length - displaced.length)}, tokens: ${messages.length} }`);
+  }
+}
+
+// ── Photo move ──────────────────────────────────────────────────────────────
+
+// Move pre-uploaded draft photos out of <user>/draft/<localId>/ into the
+// activity's final folder <user>/<activity_id>/, then record one row per photo
+// in activity_photos. Each move/insert is independent so one bad photo doesn't
+// take down the rest.
+async function moveAndRecordPhotos(
+  // deno-lint-ignore no-explicit-any
+  admin: any,
+  opts: { userId: string; activityId: string; draftPaths: string[] },
+): Promise<void> {
+  const { userId, activityId, draftPaths } = opts;
+  const bucket = admin.storage.from('activity-photos');
+
+  for (let i = 0; i < draftPaths.length; i++) {
+    const draftPath = draftPaths[i];
+    // Defensive: only accept paths that start with the caller's own folder.
+    if (!draftPath.startsWith(`${userId}/`)) {
+      console.warn(`[photos] skipping non-owned path: ${draftPath}`);
+      continue;
+    }
+    const ext = draftPath.split('.').pop() ?? 'jpg';
+    const finalPath = `${userId}/${activityId}/${i}.${ext}`;
+    try {
+      const { error: moveErr } = await bucket.move(draftPath, finalPath);
+      if (moveErr) {
+        console.warn(`[photos] move failed for ${draftPath}: ${moveErr.message}`);
+        continue;
+      }
+      const { error: insertErr } = await admin.from('activity_photos').insert({
+        activity_id:  activityId,
+        user_id:      userId,
+        storage_path: finalPath,
+        position:     i,
+      });
+      if (insertErr) {
+        console.warn(`[photos] insert failed for ${finalPath}: ${insertErr.message}`);
+      }
+    } catch (e) {
+      console.warn(`[photos] threw for ${draftPath}:`, e instanceof Error ? e.message : e);
+    }
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -151,7 +288,20 @@ Deno.serve(async (req) => {
   const parsed = SubmitSchema.safeParse(rawBody);
   if (!parsed.success) return json({ error: 'invalid', issues: parsed.error.issues }, 400);
 
-  const { type, started_at, ended_at, trace, samples, client_calories } = parsed.data;
+  const {
+    type,
+    started_at,
+    ended_at,
+    trace,
+    samples,
+    client_calories,
+    title,
+    description,
+    visibility,
+    hide_pace,
+    hide_calories,
+    photo_paths,
+  } = parsed.data;
   const coords = trace.coordinates as [number, number][];
 
   // ── Validation rules (all in JS, before any DB write) ──────────────────────
@@ -194,15 +344,20 @@ Deno.serve(async (req) => {
   const { data: activity, error: insertErr } = await admin
     .from('activities')
     .insert({
-      user_id:    user.id,
+      user_id:       user.id,
       type,
       started_at,
       ended_at,
-      duration_s: durationS,
-      distance_m: distanceM,
-      calories:   client_calories ?? null,
-      trace:      `SRID=4326;${lineStringWkt(coords)}`,
-      status:     'processing',
+      duration_s:    durationS,
+      distance_m:    distanceM,
+      calories:      client_calories ?? null,
+      trace:         `SRID=4326;${lineStringWkt(coords)}`,
+      status:        'processing',
+      title:         title ?? null,
+      description:   description ?? null,
+      visibility:    visibility ?? 'public',
+      hide_pace:     hide_pace ?? false,
+      hide_calories: hide_calories ?? false,
     })
     .select('id')
     .single();
@@ -268,6 +423,32 @@ Deno.serve(async (req) => {
       }
     } catch (e) {
       console.error('[submit-activity] map-matching failed:', e instanceof Error ? e.message : e);
+    }
+
+    // Best-effort: move pre-uploaded draft photos into the activity's final folder
+    // and record them in activity_photos. Never fail the submit if a photo errors.
+    if (photo_paths && photo_paths.length > 0) {
+      try {
+        await moveAndRecordPhotos(admin, {
+          userId: user.id,
+          activityId,
+          draftPaths: photo_paths,
+        });
+      } catch (e) {
+        console.error('[submit-activity] photo move failed:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Best-effort: push notifications to displaced owners and followers.
+    try {
+      await fanOutNotifications(admin, {
+        activityId,
+        actorUserId:   user.id,
+        cellsCaptured: result.cells_captured,
+        displaced:     result.displaced ?? [],
+      });
+    } catch (e) {
+      console.error('[submit-activity] push fan-out failed:', e instanceof Error ? e.message : e);
     }
 
     return json({

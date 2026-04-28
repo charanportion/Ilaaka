@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import type { ActivityType, SubmitActivityResponse } from '@/types/api';
 import { estimateCalories } from '@/lib/calories';
+import { Tier2Prompts } from '@/components/activity/Tier2Prompts';
 
 export type SubmissionState = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -95,6 +96,7 @@ export function PostActivityCard({
               </View>
             )}
           </View>
+          <Tier2Prompts />
           <TouchableOpacity
             onPress={onDone}
             className="bg-indigo-500 rounded-2xl py-4 items-center"

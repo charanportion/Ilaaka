@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Map, Activity, Users, User } from 'lucide-react-native';
+import { Map, Activity, Users, Newspaper, User } from 'lucide-react-native';
 
 export default function AppLayout() {
   return (
@@ -32,12 +32,22 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
+        name="feed"
+        options={{
+          title: 'Feed',
+          tabBarIcon: ({ color, size }) => <Newspaper color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
         }}
       />
+      {/* Hidden from tab bar — accessible via router.push */}
+      <Tabs.Screen name="legal"        options={{ href: null }} />
+      <Tabs.Screen name="edit-profile" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -2,6 +2,7 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
+import { getCachedPushToken, unregisterPushToken } from './push';
 
 export async function signUpWithEmail(email: string, password: string) {
   const { data, error } = await supabase.auth.signUp({ email, password });
@@ -16,6 +17,10 @@ export async function signInWithEmail(email: string, password: string) {
 }
 
 export async function signOut() {
+  // Delete this device's push token before signing out so it stops receiving pushes.
+  const token = getCachedPushToken();
+  if (token) await unregisterPushToken(token).catch(() => {/* non-fatal */});
+
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }

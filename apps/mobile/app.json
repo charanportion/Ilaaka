@@ -22,6 +22,7 @@
     },
     "android": {
       "package": "com.dotportion.ilaaka",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#7F77DD",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

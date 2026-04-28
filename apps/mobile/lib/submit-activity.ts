@@ -1,12 +1,18 @@
 import { supabase } from '@/lib/supabase';
 import { readBufferedTrace, getEndedAt } from '@/db/trace-buffer';
 import { estimateCalories } from '@/lib/calories';
-import type { ActivityType, SubmitActivityRequest, SubmitActivityResponse } from '@/types/api';
+import type {
+  ActivityMetadata,
+  ActivityType,
+  SubmitActivityRequest,
+  SubmitActivityResponse,
+} from '@/types/api';
 
 export async function submitActivity(
   localId: string,
   type: ActivityType,
   startedAt: Date,
+  metadata?: ActivityMetadata,
 ): Promise<SubmitActivityResponse> {
   const points = readBufferedTrace(localId);
   if (points.length < 2) throw new Error('too_few_points');
@@ -29,6 +35,7 @@ export async function submitActivity(
       accuracy_m: points.map(p => p.accuracy),
     },
     client_calories: calories,
+    ...(metadata ?? {}),
   };
 
   const { data, error } = await supabase.functions.invoke<SubmitActivityResponse>(

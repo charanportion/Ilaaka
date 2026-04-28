@@ -9,16 +9,20 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { signUpWithEmail } from '@/lib/auth';
 
 export default function SignUpScreen() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleSignUp() {
-    if (!email || !password) return;
+    if (!email || !password) {
+      Alert.alert('Missing details', 'Enter your email and a password.');
+      return;
+    }
     if (password.length < 8) {
       Alert.alert('Password too short', 'Use at least 8 characters.');
       return;
@@ -26,6 +30,11 @@ export default function SignUpScreen() {
     setLoading(true);
     try {
       await signUpWithEmail(email.trim(), password);
+      Alert.alert(
+        'Check your email',
+        `We sent a verification link to ${email.trim()}. Confirm it, then sign in.`,
+        [{ text: 'OK', onPress: () => router.replace('/(auth)/sign-in') }],
+      );
     } catch (e: unknown) {
       Alert.alert('Sign up failed', e instanceof Error ? e.message : 'Unknown error');
     } finally {
