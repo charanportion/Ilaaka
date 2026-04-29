@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ActivityIndicator,
+  View, TextInput, TouchableOpacity, ActivityIndicator,
   ScrollView, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,7 +9,12 @@ import * as ImagePicker from 'expo-image-picker';
 import { ChevronLeft, Camera, Trash2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
+import { showPermissionDenied } from '@/lib/permissions';
 import { Avatar, PRESET_AVATARS } from '@/components/ui/Avatar';
+import { Text } from '@/components/ui/Text';
+import { Card } from '@/components/ui/Card';
+import { useTokens } from '@/lib/useTokens';
+import { typography } from '@/lib/design-tokens';
 
 type Profile = {
   username:     string;
@@ -24,6 +29,7 @@ const MAX_NAME = 30;
 export default function EditProfileScreen() {
   const router = useRouter();
   const userId = useAuthStore((s) => s.user?.id);
+  const { colors } = useTokens();
   const [profile, setProfile]     = useState<Profile | null>(null);
   const [loading, setLoading]     = useState(true);
   const [displayName, setDisplayName] = useState('');
@@ -56,7 +62,7 @@ export default function EditProfileScreen() {
     if (!userId) return;
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow photo library access to upload a photo.');
+      showPermissionDenied('Photo library', 'upload a profile photo');
       return;
     }
 
@@ -69,7 +75,6 @@ export default function EditProfileScreen() {
     if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
 
-    // Show the cropped image immediately as preview while we upload in the background.
     setAvatarUrl(asset.uri);
     setUploading(true);
     try {
@@ -77,7 +82,6 @@ export default function EditProfileScreen() {
       const path = `${userId}/${Date.now()}.${ext}`;
       const contentType = asset.mimeType ?? `image/${ext === 'jpg' ? 'jpeg' : ext}`;
 
-      // RN-friendly: read the cropped file once as ArrayBuffer.
       const arrayBuffer = await fetch(asset.uri).then((r) => r.arrayBuffer());
       if (!arrayBuffer.byteLength) throw new Error('image read returned 0 bytes');
 
@@ -87,11 +91,9 @@ export default function EditProfileScreen() {
       if (uploadErr) throw uploadErr;
 
       const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
-      // Cache-bust so the CDN won't serve a stale image at this path.
       setAvatarUrl(`${pub.publicUrl}?v=${Date.now()}`);
     } catch (e: unknown) {
       console.error('[edit-profile] upload error:', e);
-      // Roll back preview to whatever was saved before so we don't claim a successful upload.
       setAvatarUrl(profile?.avatar_url ?? null);
       Alert.alert('Upload failed', e instanceof Error ? e.message : 'Try again.');
     } finally {
@@ -131,8 +133,8 @@ export default function EditProfileScreen() {
 
   if (loading || !profile) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center">
-        <ActivityIndicator size="large" color="#6366F1" />
+      <SafeAreaView edges={['top']} className="flex-1 bg-bg items-center justify-center">
+        <ActivityIndicator size="large" color={colors.accent} />
       </SafeAreaView>
     );
   }
@@ -147,21 +149,24 @@ export default function EditProfileScreen() {
         options={{
           headerShown: true,
           title:       'Edit profile',
+          headerStyle: { backgroundColor: colors.surface },
+          headerTitleStyle: { fontFamily: typography.bodyStrong.fontFamily, color: colors.ink },
+          headerShadowVisible: false,
           headerLeft:  () => (
             <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-              <ChevronLeft size={24} color="#111827" />
+              <ChevronLeft size={24} color={colors.ink} />
             </TouchableOpacity>
           ),
           headerRight: () => (
             <TouchableOpacity onPress={save} disabled={!dirty || saving} hitSlop={12}>
-              <Text className={`text-sm font-semibold ${dirty && !saving ? 'text-indigo-600' : 'text-gray-300'}`}>
+              <Text variant="captionStrong" style={{ color: dirty && !saving ? colors.accent : colors.inkSubtle }}>
                 {saving ? 'Saving…' : 'Save'}
               </Text>
             </TouchableOpacity>
           ),
         }}
       />
-      <SafeAreaView className="flex-1 bg-gray-50" edges={['bottom']}>
+      <View className="flex-1 bg-bg">
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           className="flex-1"
@@ -175,12 +180,12 @@ export default function EditProfileScreen() {
                 color={profile.color}
                 avatarUrl={avatarUrl}
               />
-              <Text className="text-xs text-gray-400 mt-3">@{profile.username}</Text>
+              <Text variant="tag" tone="subtle" style={{ marginTop: 12 }}>@{profile.username}</Text>
             </View>
 
             {/* Display name */}
-            <View className="bg-white rounded-2xl p-4 mb-6 shadow-sm">
-              <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            <Card padding={16} elevation="whisper" style={{ marginBottom: 24 }}>
+              <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase', marginBottom: 8 }}>
                 Display name
               </Text>
               <TextInput
@@ -188,14 +193,19 @@ export default function EditProfileScreen() {
                 onChangeText={setDisplayName}
                 maxLength={MAX_NAME}
                 placeholder="Your name"
-                placeholderTextColor="#9CA3AF"
-                className="text-base text-gray-900 py-1"
+                placeholderTextColor={colors.inkSubtle}
+                style={{
+                  fontFamily: typography.body.fontFamily,
+                  fontSize: typography.body.fontSize,
+                  color: colors.ink,
+                  paddingVertical: 4,
+                }}
               />
-            </View>
+            </Card>
 
             {/* Avatar picker */}
-            <View className="bg-white rounded-2xl p-4 mb-6 shadow-sm">
-              <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            <Card padding={16} elevation="whisper" style={{ marginBottom: 24 }}>
+              <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase', marginBottom: 12 }}>
                 Avatar
               </Text>
 
@@ -204,23 +214,33 @@ export default function EditProfileScreen() {
                 <TouchableOpacity
                   onPress={pickAndUploadPhoto}
                   disabled={uploading}
-                  className="w-14 h-14 rounded-full bg-indigo-100 items-center justify-center"
+                  style={{
+                    width: 56, height: 56, borderRadius: 28,
+                    backgroundColor: colors.surfaceAlt,
+                    borderWidth: 1, borderColor: colors.border,
+                    alignItems: 'center', justifyContent: 'center',
+                  }}
                   activeOpacity={0.7}
                 >
                   {uploading ? (
-                    <ActivityIndicator color="#6366F1" />
+                    <ActivityIndicator color={colors.accent} />
                   ) : (
-                    <Camera size={22} color="#6366F1" />
+                    <Camera size={22} color={colors.accent} />
                   )}
                 </TouchableOpacity>
 
                 {/* Clear (back to initial) */}
                 <TouchableOpacity
                   onPress={() => setAvatarUrl(null)}
-                  className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center"
+                  style={{
+                    width: 56, height: 56, borderRadius: 28,
+                    backgroundColor: colors.surfaceAlt,
+                    borderWidth: 1, borderColor: colors.border,
+                    alignItems: 'center', justifyContent: 'center',
+                  }}
                   activeOpacity={0.7}
                 >
-                  <Trash2 size={20} color="#6B7280" />
+                  <Trash2 size={20} color={colors.inkMuted} />
                 </TouchableOpacity>
 
                 {/* Preset emoji avatars */}
@@ -240,22 +260,22 @@ export default function EditProfileScreen() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         borderWidth: selected ? 3 : 0,
-                        borderColor: '#111827',
+                        borderColor: colors.inkStrong,
                       }}
                     >
-                      <Text style={{ fontSize: 28 }}>{emoji}</Text>
+                      <Text variant="body" style={{ fontSize: 28, lineHeight: 32 }}>{emoji}</Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
 
-              <Text className="text-xs text-gray-400 mt-3">
+              <Text variant="tag" tone="subtle" style={{ marginTop: 12 }}>
                 Upload your own photo or pick an emoji on your territory color.
               </Text>
-            </View>
+            </Card>
           </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
     </>
   );
 }

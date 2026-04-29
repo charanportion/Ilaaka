@@ -1,10 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendExpoPush, type ExpoPushMessage } from '../_shared/expo-push.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
-};
+// CORS allowlist — same approach as submit-activity. Empty Origin (server-to-server
+// pg_cron callers) is always allowed.
+const ALLOWED_ORIGINS = (Deno.env.get('CORS_ALLOWED_ORIGINS') ?? '')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+
+function buildCors(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin');
+  const allow = !origin || ALLOWED_ORIGINS.includes(origin) ? (origin ?? '') : '';
+  return {
+    'Access-Control-Allow-Origin': allow,
+    'Access-Control-Allow-Headers': 'authorization, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  };
+}
 
 function formatKm(m: number): string {
   return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
@@ -23,21 +34,31 @@ type WeeklyStats = {
 };
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCors(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  // pg_cron / authorized callers only — must present a service-role JWT.
-  // Supabase platform already verifies the JWT signature; we just check role.
-  const auth = req.headers.get('Authorization');
-  if (!auth?.startsWith('Bearer ')) {
-    return new Response('unauthorized', { status: 401, headers: corsHeaders });
-  }
-  try {
-    const payload = auth.slice(7).split('.')[1];
-    const claims = JSON.parse(atob(payload));
-    if (claims.role !== 'service_role') {
-      return new Response('forbidden', { status: 403, headers: corsHeaders });
+  // pg_cron / authorized callers only. Supabase has already verified the JWT
+  // signature when proxying the request; we just need to confirm the role.
+  // Two acceptable callers:
+  //   1) Bearer matches our service role key byte-for-byte (manual cron / admin tools)
+  //   2) Bearer is a JWT whose 'role' claim is 'service_role' (pg_cron via supabase_url)
+  const auth = req.headers.get('Authorization') ?? '';
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  const isExactKey = serviceKey.length > 0 && auth === `Bearer ${serviceKey}`;
+  let isServiceRoleClaim = false;
+  if (!isExactKey && auth.startsWith('Bearer ')) {
+    try {
+      const claims = JSON.parse(atob(auth.slice(7).split('.')[1] ?? ''));
+      isServiceRoleClaim = claims?.role === 'service_role';
+      // Reject expired tokens explicitly even if the role claim is right.
+      if (isServiceRoleClaim && typeof claims?.exp === 'number') {
+        if (claims.exp < Math.floor(Date.now() / 1000)) isServiceRoleClaim = false;
+      }
+    } catch {
+      isServiceRoleClaim = false;
     }
-  } catch {
+  }
+  if (!isExactKey && !isServiceRoleClaim) {
     return new Response('unauthorized', { status: 401, headers: corsHeaders });
   }
 

@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Linking,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -13,6 +11,9 @@ import { MapPin, Navigation, Bell } from 'lucide-react-native';
 import { capture } from '@/lib/analytics';
 import { registerPushTokenForUser } from '@/lib/push';
 import { OnboardingProgressBar } from '@/components/onboarding/ProgressBar';
+import { Text } from '@/components/ui/Text';
+import { Button } from '@/components/ui/Button';
+import { useTokens } from '@/lib/useTokens';
 
 type Step = 'foreground' | 'background' | 'notifications';
 type Outcome = 'idle' | 'pending' | 'granted' | 'denied';
@@ -53,6 +54,7 @@ const KIND: Record<Step, string> = {
 
 export default function PermissionsScreen() {
   const router = useRouter();
+  const { colors } = useTokens();
   const [step, setStep] = useState<Step>('foreground');
   const [outcome, setOutcome] = useState<Outcome>('idle');
 
@@ -105,24 +107,38 @@ export default function PermissionsScreen() {
   const { title, body, cta, Icon } = COPY[step];
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-bg">
       <View className="px-6 pt-4">
         <OnboardingProgressBar step={4} total={4} />
       </View>
 
       <View className="flex-1 px-6 pt-12">
-        <View className="w-16 h-16 rounded-full bg-indigo-100 items-center justify-center mb-6">
-          <Icon color="#4F46E5" size={28} />
+        <View
+          style={{
+            width: 64, height: 64, borderRadius: 32,
+            backgroundColor: colors.surface,
+            borderWidth: 1, borderColor: colors.border,
+            alignItems: 'center', justifyContent: 'center',
+            marginBottom: 24,
+          }}
+        >
+          <Icon color={colors.accent} size={28} />
         </View>
-        <Text className="text-3xl font-bold text-gray-900 mb-3">{title}</Text>
-        <Text className="text-base text-gray-500 leading-6">{body}</Text>
+        <Text variant="h1" tone="strong" style={{ marginBottom: 12 }}>{title}</Text>
+        <Text variant="bodyLg" tone="muted">{body}</Text>
 
         {outcome === 'denied' && (
-          <View className="mt-6 p-4 rounded-2xl bg-amber-50 border border-amber-200">
-            <Text className="text-sm text-amber-900 mb-2 font-medium">
+          <View
+            style={{
+              marginTop: 24, padding: 16, borderRadius: 16,
+              backgroundColor: colors.surface,
+              borderWidth: 1, borderColor: colors.warning,
+            }}
+          >
+            <Text variant="captionStrong" tone="warning" style={{ marginBottom: 8 }}>
               {required ? 'Permission denied' : 'Notifications off'}
             </Text>
-            <Text className="text-sm text-amber-800">
+            <Text variant="caption" tone="muted">
               {required
                 ? "You can still use Ilaaka, but recording won't work until this is enabled. Open Settings to change it."
                 : "No problem — you can turn this on later from Settings."}
@@ -132,7 +148,7 @@ export default function PermissionsScreen() {
                 onPress={() => Linking.openSettings()}
                 className="mt-3 self-start"
               >
-                <Text className="text-amber-900 font-semibold">Open Settings</Text>
+                <Text variant="captionStrong" tone="warning">Open Settings</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -140,23 +156,19 @@ export default function PermissionsScreen() {
       </View>
 
       <View className="px-6 pb-8">
-        <TouchableOpacity
-          className="rounded-xl py-4 items-center bg-indigo-500 mb-3"
+        <Button
+          label={outcome === 'denied' ? 'Continue' : cta}
+          variant="primary"
+          size="lg"
+          fullWidth
+          loading={outcome === 'pending'}
           onPress={outcome === 'denied' ? next : handleRequest}
-          disabled={outcome === 'pending'}
-        >
-          {outcome === 'pending' ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text className="text-white font-semibold text-base">
-              {outcome === 'denied' ? 'Continue' : cta}
-            </Text>
-          )}
-        </TouchableOpacity>
+          style={{ marginBottom: 12 }}
+        />
 
         {outcome !== 'pending' && outcome !== 'granted' && (
           <TouchableOpacity onPress={handleSkip} className="py-3 items-center">
-            <Text className="text-gray-500 font-medium">Skip for now</Text>
+            <Text variant="captionStrong" tone="muted">Skip for now</Text>
           </TouchableOpacity>
         )}
       </View>

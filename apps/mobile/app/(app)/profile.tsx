@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
+import { View, TouchableOpacity, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { RefreshCw, ChevronRight, Pencil } from 'lucide-react-native';
+import { RefreshCw, ChevronRight, Pencil, Sun, Moon, Smartphone, BarChart3 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { signOut } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { fetchProfileStats } from '@/lib/zones';
 import { useAuthStore } from '@/stores/auth-store';
+import { useThemeStore, type ThemeMode } from '@/stores/theme-store';
+import { useTokens } from '@/lib/useTokens';
+import { formatDistance, formatArea } from '@/lib/format';
 import { Avatar } from '@/components/ui/Avatar';
+import { Text } from '@/components/ui/Text';
+import { Card } from '@/components/ui/Card';
 
 const TERRITORY_COLORS = [
   '#E53935',
@@ -37,24 +42,17 @@ type Stats = {
   area_captured_m2: number;
 };
 
-function formatDistance(m: number): string {
-  if (m < 1000) return `${Math.round(m)} m`;
-  return `${(m / 1000).toFixed(2)} km`;
-}
-
-function formatArea(m2: number): string {
-  if (m2 < 10_000) return `${m2.toLocaleString()} m²`;
-  return `${(m2 / 10_000).toFixed(2)} ha`;
-}
-
 export default function ProfileScreen() {
   const router = useRouter();
   const userId = useAuthStore((s) => s.user?.id);
+  const { colors } = useTokens();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [updatingColor, setUpdatingColor] = useState(false);
+  const themeMode = useThemeStore((s) => s.mode);
+  const setThemeMode = useThemeStore((s) => s.setMode);
 
   async function loadStats() {
     if (!userId) return;
@@ -105,22 +103,21 @@ export default function ProfileScreen() {
 
   useEffect(() => { loadProfile(); }, [userId]);
 
-  // Refetch profile + stats every time the tab regains focus so edits land instantly.
   useFocusEffect(useCallback(() => {
     loadProfile();
     loadStats();
   }, [userId]));
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView edges={['top']} className="flex-1 bg-bg">
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingTop: 32 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#6366F1" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} />}
       >
         {/* Header */}
         <View className="items-center mb-8">
           {!profileLoaded ? (
-            <ActivityIndicator color="#6366F1" />
+            <ActivityIndicator color={colors.accent} />
           ) : profile ? (
             <>
               <View className="mb-3">
@@ -131,52 +128,82 @@ export default function ProfileScreen() {
                   avatarUrl={profile.avatar_url}
                 />
               </View>
-              <Text className="text-xl font-bold text-gray-900">{profile.display_name}</Text>
-              <Text className="text-sm text-gray-400 mb-3">@{profile.username}</Text>
+              <Text variant="h3" tone="strong">{profile.display_name}</Text>
+              <Text variant="caption" tone="subtle" style={{ marginBottom: 12 }}>@{profile.username}</Text>
               <TouchableOpacity
                 onPress={() => router.push('/(app)/edit-profile' as never)}
-                className="flex-row items-center bg-gray-100 px-4 py-2 rounded-full"
+                className="flex-row items-center bg-surfaceAlt px-4 py-2 rounded-pill border border-border"
                 activeOpacity={0.7}
               >
-                <Pencil size={14} color="#374151" />
-                <Text className="text-gray-700 text-sm font-semibold ml-1.5">Edit profile</Text>
+                <Pencil size={14} color={colors.ink} />
+                <Text variant="captionStrong" style={{ marginLeft: 6 }}>Edit profile</Text>
               </TouchableOpacity>
             </>
           ) : (
-            <Text className="text-gray-400 text-sm">Profile unavailable</Text>
+            <Text variant="caption" tone="subtle">Profile unavailable</Text>
           )}
         </View>
 
         {/* Zone stats */}
-        <View className="bg-white rounded-2xl p-5 mb-6 shadow-sm">
+        <Card padding={20} elevation="whisper" style={{ marginBottom: 24 }}>
           <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+            <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase' }}>
               Zone stats
             </Text>
             <TouchableOpacity onPress={handleRefresh} hitSlop={12}>
-              <RefreshCw size={16} color={refreshing ? '#9CA3AF' : '#6366F1'} />
+              <RefreshCw size={16} color={refreshing ? colors.inkSubtle : colors.accent} />
             </TouchableOpacity>
           </View>
           {stats ? (
             <View className="flex-row">
               <View className="flex-1 items-center">
-                <Text className="text-2xl font-bold text-indigo-600">{formatDistance(stats.distance_walked_m)}</Text>
-                <Text className="text-xs text-gray-500 mt-1">Distance walked</Text>
+                <Text variant="h2" tone="strong">{formatDistance(stats.distance_walked_m)}</Text>
+                <Text variant="tag" tone="muted" style={{ marginTop: 4 }}>Distance walked</Text>
               </View>
-              <View className="w-px bg-gray-100" />
+              <View style={{ width: 1, backgroundColor: colors.border }} />
               <View className="flex-1 items-center">
-                <Text className="text-2xl font-bold text-indigo-600">{formatArea(stats.area_captured_m2)}</Text>
-                <Text className="text-xs text-gray-500 mt-1">Area captured</Text>
+                <Text variant="h2" tone="strong">{formatArea(stats.area_captured_m2)}</Text>
+                <Text variant="tag" tone="muted" style={{ marginTop: 4 }}>Area captured</Text>
               </View>
             </View>
           ) : (
-            <ActivityIndicator color="#6366F1" />
+            <ActivityIndicator color={colors.accent} />
           )}
-        </View>
+        </Card>
+
+        <TouchableOpacity
+          onPress={() => router.push('/(app)/progress' as never)}
+          activeOpacity={0.7}
+          style={{ marginBottom: 24 }}
+        >
+          <Card padding={18} elevation="whisper">
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: colors.surfaceAlt,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <BarChart3 size={18} color={colors.accent} />
+              </View>
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text variant="bodyStrong" tone="strong">View progress</Text>
+                <Text variant="caption" tone="muted" style={{ marginTop: 2 }}>
+                  Weekly stats, streaks & goals
+                </Text>
+              </View>
+              <ChevronRight size={18} color={colors.inkSubtle} />
+            </View>
+          </Card>
+        </TouchableOpacity>
 
         {profile && (
-          <View className="bg-white rounded-2xl p-5 mb-6 shadow-sm">
-            <Text className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+          <Card padding={20} elevation="whisper" style={{ marginBottom: 24 }}>
+            <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase', marginBottom: 16 }}>
               Territory Color
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
@@ -193,21 +220,69 @@ export default function ProfileScreen() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     borderWidth: profile.color === c ? 3 : 0,
-                    borderColor: '#111827',
+                    borderColor: colors.inkStrong,
                     opacity: updatingColor && profile.color !== c ? 0.5 : 1,
                   }}
                 >
                   {profile.color === c && (
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff' }} />
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.surface }} />
                   )}
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
+          </Card>
         )}
 
+        {/* Appearance */}
+        <Card padding={20} elevation="whisper" style={{ marginBottom: 24 }}>
+          <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase', marginBottom: 16 }}>
+            Appearance
+          </Text>
+          <View className="flex-row bg-surfaceAlt rounded-md p-1">
+            {([
+              { value: 'light',  label: 'Light',  Icon: Sun },
+              { value: 'dark',   label: 'Dark',   Icon: Moon },
+              { value: 'system', label: 'System', Icon: Smartphone },
+            ] as { value: ThemeMode; label: string; Icon: typeof Sun }[]).map(({ value, label, Icon }) => {
+              const active = themeMode === value;
+              return (
+                <TouchableOpacity
+                  key={value}
+                  onPress={() => setThemeMode(value)}
+                  activeOpacity={0.8}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingVertical: 10,
+                    borderRadius: 6,
+                    backgroundColor: active ? colors.surface : 'transparent',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: active ? 0.08 : 0,
+                    shadowRadius: 2,
+                    elevation: active ? 1 : 0,
+                  }}
+                >
+                  <Icon size={16} color={active ? colors.accent : colors.inkMuted} />
+                  <Text
+                    variant="captionStrong"
+                    style={{
+                      marginLeft: 6,
+                      color: active ? colors.accent : colors.inkMuted,
+                    }}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Card>
+
         {/* Legal */}
-        <View className="bg-white rounded-2xl mb-6 shadow-sm overflow-hidden">
+        <Card elevation="whisper" style={{ marginBottom: 24, overflow: 'hidden' }}>
           {[
             { label: 'About',           path: '/(app)/legal/about'   as const },
             { label: 'Privacy Policy',  path: '/(app)/legal/privacy' as const },
@@ -216,24 +291,31 @@ export default function ProfileScreen() {
             <TouchableOpacity
               key={row.path}
               onPress={() => router.push(row.path)}
-              className={`flex-row items-center justify-between px-5 py-4 ${
-                i < arr.length - 1 ? 'border-b border-gray-100' : ''
-              }`}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 20,
+                paddingVertical: 16,
+                borderBottomWidth: i < arr.length - 1 ? 1 : 0,
+                borderBottomColor: colors.border,
+              }}
               activeOpacity={0.7}
             >
-              <Text className="text-sm text-gray-700 font-medium">{row.label}</Text>
-              <ChevronRight size={18} color="#9CA3AF" />
+              <Text variant="bodyStrong">{row.label}</Text>
+              <ChevronRight size={18} color={colors.inkSubtle} />
             </TouchableOpacity>
           ))}
-        </View>
+        </Card>
 
         <View className="flex-1" />
 
         <TouchableOpacity
-          className="border border-red-300 rounded-xl py-3 items-center mb-4"
+          className="border rounded-md py-3 items-center mb-4"
+          style={{ borderColor: colors.danger }}
           onPress={() => signOut().catch(console.error)}
         >
-          <Text className="text-red-500 font-semibold">Sign out</Text>
+          <Text variant="bodyStrong" tone="danger">Sign out</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

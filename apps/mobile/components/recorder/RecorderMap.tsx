@@ -12,8 +12,11 @@ import {
 import type { NativeSyntheticEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapRecenterButton } from '@/components/map/MapRecenterButton';
+import { useMapStyleUrl } from '@/lib/theme';
+import { useTokens } from '@/lib/useTokens';
+import { filterOutliers, smoothTrace, type RawPoint } from '@/lib/smooth';
+import type { ActivityType } from '@/types/api';
 
-const OSM_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const FOLLOW_ZOOM = 17;
 const FOLLOW_EASE_MS = 600;
 const NEAR_USER_METERS = 30;
@@ -26,11 +29,10 @@ function isNear(a: [number, number] | null, b: [number, number] | null): boolean
   return Math.hypot(dxMeters, dyMeters) < NEAR_USER_METERS;
 }
 
-type LngLatPoint = { lng: number; lat: number };
-
 type Props = {
-  points: readonly LngLatPoint[];
+  points: readonly RawPoint[];
   isFollowing: boolean;
+  activityType?: ActivityType;
   trailColor?: string;
   initialCenter?: [number, number] | null; // [lng, lat]
 };
@@ -38,26 +40,28 @@ type Props = {
 export function RecorderMap({
   points,
   isFollowing,
+  activityType = 'walk',
   trailColor = '#7F77DD',
   initialCenter,
 }: Props) {
   const cameraRef = useRef<CameraRef | null>(null);
   const insets = useSafeAreaInsets();
+  const mapStyle = useMapStyleUrl();
+  const { colors } = useTokens();
   const [userPanned, setUserPanned] = useState(false);
   const [bearing, setBearing] = useState(0);
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
 
   const trailFc = useMemo<GeoJSON.Feature<GeoJSON.LineString> | null>(() => {
     if (points.length < 2) return null;
+    const coordinates = smoothTrace(filterOutliers(points, activityType));
+    if (coordinates.length < 2) return null;
     return {
       type: 'Feature',
-      geometry: {
-        type: 'LineString',
-        coordinates: points.map((p) => [p.lng, p.lat]),
-      },
+      geometry: { type: 'LineString', coordinates },
       properties: {},
     };
-  }, [points]);
+  }, [points, activityType]);
 
   // Ease the camera to the latest point on every new GPS sample while following.
   // Skips when the user has manually panned away — recenter button restores follow.
@@ -105,7 +109,7 @@ export function RecorderMap({
   if (!center) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color="#6366F1" />
+        <ActivityIndicator color={colors.accent} />
       </View>
     );
   }
@@ -114,7 +118,7 @@ export function RecorderMap({
     <View style={{ flex: 1 }}>
       <Map
         style={{ flex: 1 }}
-        mapStyle={OSM_STYLE}
+        mapStyle={mapStyle}
         logo={false}
         attribution={false}
         onRegionIsChanging={handleRegionIsChanging}

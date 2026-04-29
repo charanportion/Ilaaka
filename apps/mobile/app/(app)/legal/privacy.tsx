@@ -1,27 +1,28 @@
-import { ScrollView, View, Text } from 'react-native';
+import { ScrollView, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View className="mb-6">
-      <Text className="text-base font-semibold text-gray-900 mb-2">{title}</Text>
+      <Text variant="bodyStrong" tone="strong" style={{ marginBottom: 8 }}>{title}</Text>
       {children}
     </View>
   );
 }
 
-function P({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <Text className={`text-sm text-gray-700 leading-6 mb-2 ${className ?? ''}`}>{children}</Text>;
+function P({ children }: { children: React.ReactNode }) {
+  return <Text variant="caption" style={{ marginBottom: 8, lineHeight: 22 }}>{children}</Text>;
 }
 
 function Bullet({ children }: { children: React.ReactNode }) {
-  return <Text className="text-sm text-gray-700 leading-6 mb-1">• {children}</Text>;
+  return <Text variant="caption" style={{ marginBottom: 4, lineHeight: 22 }}>• {children}</Text>;
 }
 
 export default function PrivacyScreen() {
   return (
-    <ScrollView className="flex-1 bg-white" contentContainerStyle={{ padding: 24 }}>
-      <Text className="text-2xl font-bold text-gray-900 mb-2">Privacy Policy</Text>
-      <Text className="text-xs text-gray-400 mb-6">Last updated: April 2026</Text>
+    <ScrollView className="flex-1 bg-bg" contentContainerStyle={{ padding: 24 }}>
+      <Text variant="h2" tone="strong" style={{ marginBottom: 8 }}>Privacy Policy</Text>
+      <Text variant="tag" tone="subtle" style={{ marginBottom: 24 }}>Last updated: April 2026</Text>
 
       <Section title="What we collect">
         <P>
@@ -40,15 +41,13 @@ export default function PrivacyScreen() {
       </Section>
 
       <Section title="Who we share it with">
-        <P>
-          We process your data through these vendors strictly to operate the app:
-        </P>
+        <P>We process your data through these vendors strictly to operate the app:</P>
         <Bullet>Supabase — database, authentication, file storage.</Bullet>
         <Bullet>Mapbox — used server-side to snap GPS traces to roads. Coordinates leave our servers only for this purpose.</Bullet>
         <Bullet>Expo Push Notifications — to deliver notifications to your device.</Bullet>
         <Bullet>Sentry — anonymized crash reports (no GPS).</Bullet>
         <Bullet>PostHog — anonymized usage events (no GPS, no email).</Bullet>
-        <P className="mt-2">
+        <P>
           We do not sell your data. We do not share your raw GPS traces with any other user — only the smoothed territory polygons are visible to others.
         </P>
       </Section>
@@ -72,15 +71,11 @@ export default function PrivacyScreen() {
       </Section>
 
       <Section title="Children">
-        <P>
-          Ilaaka is not directed to children under 13. If we discover an account belongs to a child, we will delete it.
-        </P>
+        <P>Ilaaka is not directed to children under 13. If we discover an account belongs to a child, we will delete it.</P>
       </Section>
 
       <Section title="Changes to this policy">
-        <P>
-          We will notify you in-app of any material changes. Continued use of the app after a change indicates acceptance of the updated policy.
-        </P>
+        <P>We will notify you in-app of any material changes. Continued use of the app after a change indicates acceptance of the updated policy.</P>
       </Section>
 
       <Section title="Contact">

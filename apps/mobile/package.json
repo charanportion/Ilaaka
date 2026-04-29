@@ -8,11 +8,22 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "lint:fix": "expo lint --fix",
+    "typecheck": "tsc --noEmit",
+    "verify": "pnpm typecheck && pnpm lint",
+    "prebuild:android": "expo prebuild --platform android --clean",
+    "build:android": "eas build --platform android --profile production",
+    "build:android:apk": "eas build --platform android --profile production-apk",
+    "build:android:preview": "eas build --platform android --profile preview",
+    "build:android:local": "cd android && ./gradlew assembleRelease",
+    "submit:android": "eas submit --platform android --latest"
   },
   "dependencies": {
     "@expo/ngrok": "4.1.0",
     "@expo/vector-icons": "^15.0.3",
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@maplibre/maplibre-react-native": "^11.0.2",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",

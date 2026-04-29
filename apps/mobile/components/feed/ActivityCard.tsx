@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import {
   View,
-  Text,
   Pressable,
   TouchableOpacity,
-  Image,
   Share,
   ScrollView,
 } from 'react-native';
@@ -22,6 +20,9 @@ import {
 } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { StaticActivityMap } from '@/components/feed/StaticActivityMap';
+import { ActivityPhoto } from '@/components/ActivityPhoto';
+import { Text } from '@/components/ui/Text';
+import { useTokens } from '@/lib/useTokens';
 import { toggleActivityLike, activityPhotoUrl } from '@/lib/activities';
 import { capture } from '@/lib/analytics';
 import { useAuthStore } from '@/stores/auth-store';
@@ -78,8 +79,7 @@ function autoTitle(type: ActivityType, startedAt: string): string {
   return `${tod} ${verb}`;
 }
 
-function TypeIcon({ type, size = 16 }: { type: ActivityType; size?: number }) {
-  const color = '#6366F1';
+function TypeIcon({ type, size = 16, color }: { type: ActivityType; size?: number; color: string }) {
   if (type === 'cycle') return <Bike      size={size} color={color} />;
   if (type === 'hike')  return <Mountain  size={size} color={color} />;
   if (type === 'run')   return <ActivityIconBase size={size} color={color} />;
@@ -87,15 +87,19 @@ function TypeIcon({ type, size = 16 }: { type: ActivityType; size?: number }) {
 }
 
 function VisibilityBadge({ value }: { value: FeedItem['visibility'] }) {
+  const { colors } = useTokens();
   if (value === 'public') return null;
   return (
-    <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5 ml-2">
+    <View
+      className="flex-row items-center rounded-pill px-2 py-0.5 ml-2"
+      style={{ backgroundColor: colors.surfaceAlt }}
+    >
       {value === 'private' ? (
-        <Lock size={10} color="#6B7280" />
+        <Lock size={10} color={colors.inkMuted} />
       ) : (
-        <Users size={10} color="#6B7280" />
+        <Users size={10} color={colors.inkMuted} />
       )}
-      <Text className="text-[10px] text-gray-500 ml-1 font-medium">
+      <Text variant="tag" tone="muted" style={{ marginLeft: 4 }}>
         {value === 'private' ? 'Only you' : 'Followers'}
       </Text>
     </View>
@@ -107,6 +111,7 @@ type Props = { item: FeedItem };
 export function ActivityCard({ item }: Props) {
   const router = useRouter();
   const myId = useAuthStore((s) => s.user?.id);
+  const { colors } = useTokens();
   const isOwner = myId === item.user_id;
 
   const [liked,    setLiked]    = useState(item.has_liked);
@@ -115,7 +120,6 @@ export function ActivityCard({ item }: Props) {
 
   async function onToggleLike() {
     if (busy) return;
-    // Optimistic update
     const nextLiked = !liked;
     setLiked(nextLiked);
     setLikeCnt((c) => c + (nextLiked ? 1 : -1));
@@ -126,7 +130,6 @@ export function ActivityCard({ item }: Props) {
       setLikeCnt(res.likeCount);
       capture('activity_liked', { activity_id: item.activity_id, liked: res.liked });
     } catch {
-      // Revert on failure
       setLiked(!nextLiked);
       setLikeCnt((c) => c + (nextLiked ? -1 : 1));
     } finally {
@@ -158,7 +161,7 @@ export function ActivityCard({ item }: Props) {
     : [];
 
   return (
-    <View className="bg-white mb-2">
+    <View style={{ backgroundColor: colors.surface, marginBottom: 8 }}>
       {/* Header */}
       <View className="flex-row items-center px-4 pt-3 pb-2">
         <Pressable onPress={goProfile}>
@@ -171,12 +174,12 @@ export function ActivityCard({ item }: Props) {
         </Pressable>
         <Pressable onPress={goProfile} className="flex-1 ml-3">
           <View className="flex-row items-center">
-            <Text className="text-gray-900 font-semibold text-sm">{item.display_name}</Text>
+            <Text variant="captionStrong">{item.display_name}</Text>
             <VisibilityBadge value={item.visibility} />
           </View>
           <View className="flex-row items-center mt-0.5">
-            <TypeIcon type={item.type} size={11} />
-            <Text className="text-gray-500 text-xs ml-1">
+            <TypeIcon type={item.type} size={11} color={colors.accent} />
+            <Text variant="tag" tone="muted" style={{ marginLeft: 4 }}>
               {relativeTime(item.started_at)}
             </Text>
           </View>
@@ -186,9 +189,9 @@ export function ActivityCard({ item }: Props) {
       {/* Title + description */}
       <Pressable onPress={goDetail}>
         <View className="px-4 pb-2">
-          <Text className="text-gray-900 font-bold text-lg">{title}</Text>
+          <Text variant="h3" tone="strong">{title}</Text>
           {item.description ? (
-            <Text className="text-gray-700 text-sm mt-1" numberOfLines={2}>
+            <Text variant="caption" style={{ marginTop: 4 }} numberOfLines={2}>
               {item.description}
             </Text>
           ) : null}
@@ -197,31 +200,25 @@ export function ActivityCard({ item }: Props) {
         {/* Stats */}
         <View className="flex-row px-4 pb-3">
           <View className="flex-1">
-            <Text className="text-gray-400 text-[10px] uppercase tracking-wider">Distance</Text>
-            <Text className="text-gray-900 text-base font-bold mt-0.5">
-              {formatDistance(item.distance_m)}
-            </Text>
+            <Text variant="tag" tone="subtle" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Distance</Text>
+            <Text variant="bodyStrong" style={{ marginTop: 2 }}>{formatDistance(item.distance_m)}</Text>
           </View>
           {showPace && (
             <View className="flex-1">
-              <Text className="text-gray-400 text-[10px] uppercase tracking-wider">Pace</Text>
-              <Text className="text-gray-900 text-base font-bold mt-0.5">
-                {formatPace(item.distance_m, item.duration_s)}
-              </Text>
+              <Text variant="tag" tone="subtle" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Pace</Text>
+              <Text variant="bodyStrong" style={{ marginTop: 2 }}>{formatPace(item.distance_m, item.duration_s)}</Text>
             </View>
           )}
           {item.area_captured_m2 > 0 && (
             <View className="flex-1">
-              <Text className="text-gray-400 text-[10px] uppercase tracking-wider">Area</Text>
-              <Text className="text-gray-900 text-base font-bold mt-0.5">
-                {formatArea(item.area_captured_m2)}
-              </Text>
+              <Text variant="tag" tone="subtle" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Area</Text>
+              <Text variant="bodyStrong" style={{ marginTop: 2 }}>{formatArea(item.area_captured_m2)}</Text>
             </View>
           )}
           {showCalories && item.calories ? (
             <View className="flex-1">
-              <Text className="text-gray-400 text-[10px] uppercase tracking-wider">Calories</Text>
-              <Text className="text-gray-900 text-base font-bold mt-0.5">{item.calories}</Text>
+              <Text variant="tag" tone="subtle" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Calories</Text>
+              <Text variant="bodyStrong" style={{ marginTop: 2 }}>{item.calories}</Text>
             </View>
           ) : null}
         </View>
@@ -241,14 +238,15 @@ export function ActivityCard({ item }: Props) {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            className="bg-gray-50"
+            style={{ backgroundColor: colors.surface }}
             contentContainerStyle={{ padding: 8 }}
           >
             {photos.map((path) => (
-              <Image
+              <ActivityPhoto
                 key={path}
-                source={{ uri: activityPhotoUrl(path) }}
-                style={{ width: 140, height: 140, borderRadius: 8, marginRight: 8 }}
+                uri={activityPhotoUrl(path)}
+                size={140}
+                style={{ marginRight: 8 }}
               />
             ))}
           </ScrollView>
@@ -256,31 +254,34 @@ export function ActivityCard({ item }: Props) {
       </Pressable>
 
       {/* Action row */}
-      <View className="flex-row items-center px-4 py-3 border-t border-gray-100">
+      <View
+        className="flex-row items-center px-4 py-3"
+        style={{ borderTopWidth: 1, borderTopColor: colors.border }}
+      >
         <TouchableOpacity onPress={onToggleLike} hitSlop={8} className="flex-row items-center mr-6">
           <Heart
             size={22}
-            color={liked ? '#EF4444' : '#6B7280'}
-            fill={liked ? '#EF4444' : 'transparent'}
+            color={liked ? colors.danger : colors.inkMuted}
+            fill={liked ? colors.danger : 'transparent'}
           />
           {likeCnt > 0 && (
             <Pressable onPress={goLikers} hitSlop={8}>
-              <Text className="text-gray-700 text-sm font-medium ml-2">{likeCnt}</Text>
+              <Text variant="captionStrong" style={{ marginLeft: 8 }}>{likeCnt}</Text>
             </Pressable>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={goComments} hitSlop={8} className="flex-row items-center mr-6">
-          <MessageCircle size={22} color="#6B7280" />
+          <MessageCircle size={22} color={colors.inkMuted} />
           {item.comment_count > 0 && (
-            <Text className="text-gray-700 text-sm font-medium ml-2">{item.comment_count}</Text>
+            <Text variant="captionStrong" style={{ marginLeft: 8 }}>{item.comment_count}</Text>
           )}
         </TouchableOpacity>
 
         <View className="flex-1" />
 
         <TouchableOpacity onPress={onShare} hitSlop={8}>
-          <Share2 size={20} color="#6B7280" />
+          <Share2 size={20} color={colors.inkMuted} />
         </TouchableOpacity>
       </View>
     </View>

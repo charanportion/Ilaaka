@@ -5,7 +5,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -16,6 +15,10 @@ import * as Location from 'expo-location';
 import { Home, Briefcase, Trees, Shuffle, MapPin } from 'lucide-react-native';
 import { capture } from '@/lib/analytics';
 import { OnboardingProgressBar } from '@/components/onboarding/ProgressBar';
+import { Text } from '@/components/ui/Text';
+import { Button } from '@/components/ui/Button';
+import { useTokens } from '@/lib/useTokens';
+import { typography } from '@/lib/design-tokens';
 
 type IconComponent = React.ComponentType<{ color: string; size: number }>;
 
@@ -29,6 +32,7 @@ const TILES: { key: string; label: string; Icon: IconComponent }[] = [
 export default function LocalityScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ username?: string }>();
+  const { colors } = useTokens();
 
   const [resolved, setResolved] = useState<string>('');
   const [detecting, setDetecting] = useState(false);
@@ -84,7 +88,7 @@ export default function LocalityScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-bg">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
@@ -98,11 +102,11 @@ export default function LocalityScreen() {
           contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 24 }}
           keyboardShouldPersistTaps="handled"
         >
-          <Text className="text-3xl font-bold text-gray-900 mb-3">
+          <Text variant="h1" tone="strong" style={{ marginBottom: 12 }}>
             Where do you usually walk?
           </Text>
-          <Text className="text-gray-500 mb-8">
-            We'll use this to set up your map. We never share your home address.
+          <Text variant="bodyLg" tone="muted" style={{ marginBottom: 32 }}>
+            We&apos;ll use this to set up your map. We never share your home address.
           </Text>
 
           <View className="flex-row flex-wrap -mx-1.5">
@@ -112,17 +116,19 @@ export default function LocalityScreen() {
                 <View key={key} className="w-1/2 px-1.5 mb-3">
                   <TouchableOpacity
                     onPress={() => setResolved(label)}
-                    className={`rounded-2xl border py-6 items-center ${
-                      active
-                        ? 'bg-indigo-500 border-indigo-500'
-                        : 'bg-white border-gray-200'
-                    }`}
+                    style={{
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      paddingVertical: 24,
+                      alignItems: 'center',
+                      backgroundColor: active ? colors.ctaBg : colors.surface,
+                      borderColor:     active ? colors.ctaBg : colors.border,
+                    }}
                   >
-                    <Icon color={active ? '#fff' : '#6B7280'} size={28} />
+                    <Icon color={active ? colors.ctaFg : colors.inkMuted} size={28} />
                     <Text
-                      className={`mt-2 text-sm font-semibold ${
-                        active ? 'text-white' : 'text-gray-600'
-                      }`}
+                      variant="captionStrong"
+                      style={{ marginTop: 8, color: active ? colors.ctaFg : colors.ink }}
                     >
                       {label}
                     </Text>
@@ -132,13 +138,26 @@ export default function LocalityScreen() {
             })}
           </View>
 
-          <Text className="mt-6 text-sm text-gray-500 mb-2">Locality name</Text>
+          <Text variant="caption" tone="muted" style={{ marginTop: 24, marginBottom: 8 }}>
+            Locality name
+          </Text>
           <TextInput
-            className="border border-gray-300 rounded-xl px-4 py-3 text-base"
             value={resolved}
             onChangeText={setResolved}
             placeholder="e.g. Koramangala 5th Block"
+            placeholderTextColor={colors.inkSubtle}
             autoCapitalize="words"
+            style={{
+              borderWidth: 1,
+              borderColor: colors.borderInput,
+              borderRadius: 8,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              fontFamily: typography.body.fontFamily,
+              fontSize: typography.body.fontSize,
+              color: colors.ink,
+              backgroundColor: colors.surface,
+            }}
           />
 
           <TouchableOpacity
@@ -147,32 +166,25 @@ export default function LocalityScreen() {
             className="mt-3 flex-row items-center self-start py-2"
           >
             {detecting ? (
-              <ActivityIndicator size="small" color="#4F46E5" />
+              <ActivityIndicator size="small" color={colors.accent} />
             ) : (
-              <MapPin color="#4F46E5" size={16} />
+              <MapPin color={colors.accent} size={16} />
             )}
-            <Text className="ml-2 text-indigo-600 font-medium text-sm">
+            <Text variant="captionStrong" tone="link" style={{ marginLeft: 8 }}>
               {detecting ? 'Detecting…' : 'Detect my locality'}
             </Text>
           </TouchableOpacity>
         </ScrollView>
 
         <View className="px-6 pb-8">
-          <TouchableOpacity
-            className={`rounded-xl py-4 items-center ${
-              canContinue ? 'bg-indigo-500' : 'bg-gray-200'
-            }`}
-            onPress={handleContinue}
+          <Button
+            label="Continue"
+            variant="primary"
+            size="lg"
+            fullWidth
             disabled={!canContinue}
-          >
-            <Text
-              className={`font-semibold text-base ${
-                canContinue ? 'text-white' : 'text-gray-400'
-              }`}
-            >
-              Continue
-            </Text>
-          </TouchableOpacity>
+            onPress={handleContinue}
+          />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

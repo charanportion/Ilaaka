@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, ActivityIndicator,
+  View, FlatList, TouchableOpacity, ActivityIndicator,
   TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { ChevronLeft, Send, Trash2 } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
+import { Text } from '@/components/ui/Text';
+import { useTokens } from '@/lib/useTokens';
+import { typography } from '@/lib/design-tokens';
 import {
   listActivityComments, createActivityComment, deleteActivityComment,
 } from '@/lib/activities';
@@ -28,19 +31,23 @@ function relativeTime(iso: string): string {
 function CommentRow({
   c, onDelete, canDelete,
 }: { c: ActivityComment; onDelete: () => void; canDelete: boolean }) {
+  const { colors } = useTokens();
   return (
-    <View className="flex-row items-start px-4 py-3 bg-white border-b border-gray-100">
+    <View
+      className="flex-row items-start px-4 py-3"
+      style={{ backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}
+    >
       <Avatar size={36} displayName={c.display_name} color={c.color} avatarUrl={c.avatar_url} />
       <View className="flex-1 ml-3">
         <View className="flex-row items-baseline">
-          <Text className="text-gray-900 font-semibold text-sm">{c.display_name}</Text>
-          <Text className="text-gray-400 text-[11px] ml-2">{relativeTime(c.created_at)}</Text>
+          <Text variant="captionStrong">{c.display_name}</Text>
+          <Text variant="tag" tone="subtle" style={{ marginLeft: 8 }}>{relativeTime(c.created_at)}</Text>
         </View>
-        <Text className="text-gray-700 text-sm mt-1">{c.body}</Text>
+        <Text variant="caption" style={{ marginTop: 4 }}>{c.body}</Text>
       </View>
       {canDelete && (
         <TouchableOpacity onPress={onDelete} hitSlop={8} className="p-1">
-          <Trash2 size={16} color="#9CA3AF" />
+          <Trash2 size={16} color={colors.inkSubtle} />
         </TouchableOpacity>
       )}
     </View>
@@ -51,6 +58,7 @@ export default function ActivityCommentsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const myId = useAuthStore((s) => s.user?.id);
+  const { colors } = useTokens();
 
   const [comments, setComments] = useState<ActivityComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +72,7 @@ export default function ActivityCommentsScreen() {
     else setLoading(true);
     try {
       const data = await listActivityComments(id, 100);
-      setComments(data); // newest-first as the RPC returns
+      setComments(data);
     } catch (e) {
       console.error('[activity-comments] load error:', e);
     } finally {
@@ -82,7 +90,7 @@ export default function ActivityCommentsScreen() {
     setPosting(true);
     try {
       const c = await createActivityComment(id, body);
-      setComments((cs) => [c, ...cs]); // newest-first
+      setComments((cs) => [c, ...cs]);
       setDraft('');
       capture('activity_commented', { activity_id: id });
     } catch (e) {
@@ -98,32 +106,34 @@ export default function ActivityCommentsScreen() {
       await deleteActivityComment(c.comment_id);
     } catch (e) {
       console.error('[activity-comments] delete error:', e);
-      // Reload to reconcile state
       load(true);
     }
   }
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+      <SafeAreaView className="flex-1 bg-bg items-center justify-center">
         <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator size="large" color="#6366F1" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        <View className="flex-row items-center px-2 py-2 bg-white border-b border-gray-100">
+        <View
+          className="flex-row items-center px-2 py-2"
+          style={{ backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}
+        >
           <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="p-2">
-            <ChevronLeft size={24} color="#111827" />
+            <ChevronLeft size={24} color={colors.ink} />
           </TouchableOpacity>
-          <Text className="text-base font-semibold text-gray-900 ml-1">Comments</Text>
+          <Text variant="bodyStrong" style={{ marginLeft: 4 }}>Comments</Text>
         </View>
 
         <FlatList
@@ -140,30 +150,43 @@ export default function ActivityCommentsScreen() {
           refreshing={refreshing}
           ListEmptyComponent={
             <View className="flex-1 items-center justify-center pt-24 px-8">
-              <Text className="text-gray-400 text-sm text-center">No comments yet.</Text>
+              <Text variant="caption" tone="subtle" align="center">No comments yet.</Text>
             </View>
           }
           contentContainerStyle={comments.length === 0 ? { flex: 1 } : undefined}
         />
 
-        <View className="border-t border-gray-200 bg-white px-3 py-2 flex-row items-center">
+        <View
+          className="px-3 py-2 flex-row items-center"
+          style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}
+        >
           <TextInput
             value={draft}
             onChangeText={setDraft}
             placeholder="Write a comment…"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.inkSubtle}
             multiline
             maxLength={1000}
-            className="flex-1 text-gray-900 text-sm px-3 py-2 bg-gray-100 rounded-full"
-            style={{ maxHeight: 120 }}
+            style={{
+              flex: 1,
+              color: colors.ink,
+              fontFamily: typography.body.fontFamily,
+              fontSize: 14,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              backgroundColor: colors.surfaceAlt,
+              borderRadius: 9999,
+              maxHeight: 120,
+            }}
           />
           <TouchableOpacity
             onPress={onPost}
             disabled={posting || draft.trim().length === 0}
-            className={`ml-2 p-2 rounded-full ${draft.trim().length > 0 ? 'bg-indigo-500' : 'bg-gray-200'}`}
+            className="ml-2 p-2 rounded-pill"
+            style={{ backgroundColor: draft.trim().length > 0 ? colors.accent : colors.surfaceAlt }}
             hitSlop={4}
           >
-            <Send size={18} color={draft.trim().length > 0 ? '#FFFFFF' : '#9CA3AF'} />
+            <Send size={18} color={draft.trim().length > 0 ? colors.ctaFg : colors.inkSubtle} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

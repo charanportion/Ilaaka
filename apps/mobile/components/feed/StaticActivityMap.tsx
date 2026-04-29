@@ -6,8 +6,8 @@ import {
   GeoJSONSource,
   Layer,
 } from '@maplibre/maplibre-react-native';
-
-const OSM_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+import { useMapStyleUrl } from '@/lib/theme';
+import { useTokens } from '@/lib/useTokens';
 
 type Bounds = [west: number, south: number, east: number, north: number];
 
@@ -66,6 +66,8 @@ export function StaticActivityMap({
 }: Props) {
   const resolvedPathColor = pathColor ?? ownerColor;
   const bounds = useMemo(() => geometryBounds([polygon ?? null, path ?? null]), [polygon, path]);
+  const mapStyle = useMapStyleUrl();
+  const { colors } = useTokens();
 
   const polygonFc = useMemo<GeoJSON.Feature | null>(() => {
     if (!polygon) return null;
@@ -78,14 +80,14 @@ export function StaticActivityMap({
   }, [path]);
 
   if (!bounds) {
-    return <View style={{ height, backgroundColor: '#E5E7EB' }} />;
+    return <View style={{ height, backgroundColor: colors.surfaceAlt }} />;
   }
 
   return (
     <View style={{ height, overflow: 'hidden' }}>
       <Map
         style={{ flex: 1 }}
-        mapStyle={OSM_STYLE}
+        mapStyle={mapStyle}
         logo={false}
         attribution={false}
         compass={false}

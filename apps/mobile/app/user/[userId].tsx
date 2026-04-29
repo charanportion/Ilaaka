@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
-  View, Text, ScrollView, ActivityIndicator,
+  View, ScrollView, ActivityIndicator,
   TouchableOpacity, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +15,9 @@ import { useAuthStore } from '@/stores/auth-store';
 import { capture } from '@/lib/analytics';
 import type { UserPublicProfile, UserActivity, ActivityType } from '@/types/api';
 import { Avatar } from '@/components/ui/Avatar';
+import { Text } from '@/components/ui/Text';
+import { Card } from '@/components/ui/Card';
+import { useTokens } from '@/lib/useTokens';
 
 function formatDistance(m: number): string {
   if (m < 1000) return `${Math.round(m)} m`;
@@ -42,8 +45,7 @@ function relativeTime(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-function ActivityIcon({ type }: { type: ActivityType }) {
-  const color = '#6366F1';
+function ActivityIcon({ type, color }: { type: ActivityType; color: string }) {
   const size = 16;
   if (type === 'cycle') return <Bike size={size} color={color} />;
   if (type === 'hike') return <Mountain size={size} color={color} />;
@@ -51,32 +53,42 @@ function ActivityIcon({ type }: { type: ActivityType }) {
   return <PersonStanding size={size} color={color} />;
 }
 
-function StatBlock({ label, value }: { label: string; value: string }) {
+function StatBlock({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
     <View className="flex-1 items-center">
-      <Text className="text-xl font-bold text-indigo-600">{value}</Text>
-      <Text className="text-xs text-gray-500 mt-1 text-center">{label}</Text>
+      <Text variant="h3" style={{ color: accent }}>{value}</Text>
+      <Text variant="tag" tone="muted" align="center" style={{ marginTop: 4 }}>{label}</Text>
     </View>
   );
 }
 
 function ActivityRow({ item }: { item: UserActivity }) {
+  const { colors } = useTokens();
   return (
-    <View className="px-4 py-3 border-b border-gray-100 bg-white flex-row items-center">
-      <View className="w-8 h-8 rounded-full bg-indigo-50 items-center justify-center mr-3">
-        <ActivityIcon type={item.type} />
+    <View
+      className="px-4 py-3 flex-row items-center"
+      style={{ backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}
+    >
+      <View
+        style={{
+          width: 32, height: 32, borderRadius: 16,
+          backgroundColor: colors.surfaceAlt,
+          borderWidth: 1, borderColor: colors.border,
+          alignItems: 'center', justifyContent: 'center',
+          marginRight: 12,
+        }}
+      >
+        <ActivityIcon type={item.type} color={colors.accent} />
       </View>
       <View className="flex-1">
-        <Text className="text-gray-900 text-sm font-semibold capitalize">
-          {item.type}
-        </Text>
-        <Text className="text-gray-500 text-xs mt-0.5">
+        <Text variant="captionStrong" style={{ textTransform: 'capitalize' }}>{item.type}</Text>
+        <Text variant="tag" tone="muted" style={{ marginTop: 2 }}>
           {formatDistance(item.distance_m)} · {formatDuration(item.duration_s)}
           {item.area_captured_m2 > 0 ? ` · ${formatArea(item.area_captured_m2)}` : ''}
           {item.calories ? ` · ${item.calories} kcal` : ''}
         </Text>
       </View>
-      <Text className="text-gray-400 text-xs">{relativeTime(item.started_at)}</Text>
+      <Text variant="tag" tone="subtle">{relativeTime(item.started_at)}</Text>
     </View>
   );
 }
@@ -86,6 +98,7 @@ export default function UserProfileScreen() {
   const router = useRouter();
   const myUserId = useAuthStore((s) => s.user?.id);
   const isOwn = userId === myUserId;
+  const { colors } = useTokens();
 
   const [profile, setProfile] = useState<UserPublicProfile | null>(null);
   const [activities, setActivities] = useState<UserActivity[]>([]);
@@ -139,45 +152,48 @@ export default function UserProfileScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-        <ActivityIndicator size="large" color="#6366F1" />
+      <SafeAreaView className="flex-1 bg-bg items-center justify-center">
+        <ActivityIndicator size="large" color={colors.accent} />
       </SafeAreaView>
     );
   }
 
   if (!profile) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
+      <SafeAreaView className="flex-1 bg-bg">
         <View className="flex-row items-center px-2 py-2">
           <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="p-2">
-            <ChevronLeft size={24} color="#111827" />
+            <ChevronLeft size={24} color={colors.ink} />
           </TouchableOpacity>
         </View>
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-gray-400 text-sm text-center">
-            Profile not found.
-          </Text>
+          <Text variant="caption" tone="subtle" align="center">Profile not found.</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      {/* Top bar */}
-      <View className="flex-row items-center px-2 py-2 bg-white border-b border-gray-100">
+    <SafeAreaView className="flex-1 bg-bg">
+      <View
+        className="flex-row items-center px-2 py-2"
+        style={{ backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}
+      >
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="p-2">
-          <ChevronLeft size={24} color="#111827" />
+          <ChevronLeft size={24} color={colors.ink} />
         </TouchableOpacity>
-        <Text className="text-base font-semibold text-gray-900 ml-1">Profile</Text>
+        <Text variant="bodyStrong" style={{ marginLeft: 4 }}>Profile</Text>
       </View>
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: 32 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor="#6366F1" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.accent} />}
       >
         {/* Identity header */}
-        <View className="items-center px-6 pt-8 pb-6 bg-white">
+        <View
+          className="items-center px-6 pt-8 pb-6"
+          style={{ backgroundColor: colors.surface }}
+        >
           <View className="mb-3">
             <Avatar
               size={80}
@@ -186,33 +202,31 @@ export default function UserProfileScreen() {
               avatarUrl={profile.avatar_url}
             />
           </View>
-          <Text className="text-xl font-bold text-gray-900">{profile.display_name}</Text>
-          <Text className="text-sm text-gray-400 mb-4">@{profile.username}</Text>
+          <Text variant="h3" tone="strong">{profile.display_name}</Text>
+          <Text variant="caption" tone="subtle" style={{ marginBottom: 16 }}>@{profile.username}</Text>
 
           {!isOwn && (
             <TouchableOpacity
               onPress={handleToggleFollow}
               disabled={followBusy}
-              className={`flex-row items-center px-5 py-2 rounded-full border ${
-                profile.is_following
-                  ? 'bg-white border-gray-200'
-                  : 'bg-indigo-500 border-indigo-500'
-              }`}
+              style={{
+                flexDirection: 'row', alignItems: 'center',
+                paddingHorizontal: 20, paddingVertical: 8,
+                borderRadius: 9999, borderWidth: 1,
+                backgroundColor: profile.is_following ? colors.surface : colors.ctaBg,
+                borderColor:     profile.is_following ? colors.borderInput : colors.ctaBg,
+              }}
               activeOpacity={0.8}
             >
               {profile.is_following ? (
                 <>
-                  <Check size={16} color="#6366F1" />
-                  <Text className="text-indigo-600 text-sm font-semibold ml-1.5">
-                    Following
-                  </Text>
+                  <Check size={16} color={colors.ink} />
+                  <Text variant="captionStrong" style={{ marginLeft: 6 }}>Following</Text>
                 </>
               ) : (
                 <>
-                  <Plus size={16} color="white" />
-                  <Text className="text-white text-sm font-semibold ml-1.5">
-                    Follow
-                  </Text>
+                  <Plus size={16} color={colors.ctaFg} />
+                  <Text variant="captionStrong" style={{ marginLeft: 6, color: colors.ctaFg }}>Follow</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -220,34 +234,35 @@ export default function UserProfileScreen() {
         </View>
 
         {/* Stats grid */}
-        <View className="bg-white mt-3 mx-4 rounded-2xl p-5 shadow-sm">
-          <Text className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+        <Card padding={20} elevation="whisper" style={{ marginHorizontal: 16, marginTop: 12 }}>
+          <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase', marginBottom: 16 }}>
             Lifetime stats
           </Text>
           <View className="flex-row mb-4">
-            <StatBlock label="Distance" value={formatDistance(profile.total_distance_m)} />
-            <View className="w-px bg-gray-100" />
-            <StatBlock label="Area held" value={formatArea(profile.total_area_m2)} />
+            <StatBlock label="Distance" value={formatDistance(profile.total_distance_m)} accent={colors.accent} />
+            <View style={{ width: 1, backgroundColor: colors.border }} />
+            <StatBlock label="Area held" value={formatArea(profile.total_area_m2)} accent={colors.accent} />
           </View>
-          <View className="h-px bg-gray-100 mb-4" />
+          <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 16 }} />
           <View className="flex-row">
             <StatBlock
               label="Calories"
               value={profile.total_calories > 0 ? `${profile.total_calories.toLocaleString()} kcal` : '—'}
+              accent={colors.accent}
             />
-            <View className="w-px bg-gray-100" />
-            <StatBlock label="Activities" value={`${profile.total_activities}`} />
+            <View style={{ width: 1, backgroundColor: colors.border }} />
+            <StatBlock label="Activities" value={`${profile.total_activities}`} accent={colors.accent} />
           </View>
-        </View>
+        </Card>
 
         {/* Recent activities */}
         <View className="mt-6">
-          <Text className="text-sm font-semibold text-gray-500 uppercase tracking-wide px-4 mb-2">
+          <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase', paddingHorizontal: 16, marginBottom: 8 }}>
             Recent activities
           </Text>
           {activities.length === 0 ? (
-            <View className="px-6 py-10 items-center bg-white">
-              <Text className="text-gray-400 text-sm">No activities yet</Text>
+            <View className="px-6 py-10 items-center" style={{ backgroundColor: colors.surface }}>
+              <Text variant="caption" tone="subtle">No activities yet</Text>
             </View>
           ) : (
             activities.map((a) => <ActivityRow key={a.activity_id} item={a} />)

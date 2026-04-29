@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
-  View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Image,
+  View, ScrollView, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform, RefreshControl, Pressable,
   Share,
 } from 'react-native';
@@ -13,6 +13,12 @@ import {
 } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { StaticActivityMap } from '@/components/feed/StaticActivityMap';
+import { ActivityPhoto } from '@/components/ActivityPhoto';
+import { Text } from '@/components/ui/Text';
+import { ScreenState } from '@/components/ScreenState';
+import { useToast } from '@/components/Toast';
+import { useTokens } from '@/lib/useTokens';
+import { typography } from '@/lib/design-tokens';
 import {
   getActivityDetail, listActivityComments, createActivityComment,
   toggleActivityLike, activityPhotoUrl,
@@ -59,8 +65,7 @@ function autoTitle(type: ActivityType, startedAt: string): string {
   const tod = h < 5 ? 'Late night' : h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : h < 21 ? 'Evening' : 'Night';
   return `${tod} ${verb}`;
 }
-function TypeIcon({ type, size = 14 }: { type: ActivityType; size?: number }) {
-  const color = '#6366F1';
+function TypeIcon({ type, size = 14, color }: { type: ActivityType; size?: number; color: string }) {
   if (type === 'cycle') return <Bike size={size} color={color} />;
   if (type === 'hike')  return <Mountain size={size} color={color} />;
   if (type === 'run')   return <ActivityIconBase size={size} color={color} />;
@@ -68,15 +73,19 @@ function TypeIcon({ type, size = 14 }: { type: ActivityType; size?: number }) {
 }
 
 function CommentRow({ c }: { c: ActivityComment }) {
+  const { colors } = useTokens();
   return (
-    <View className="flex-row px-4 py-3 border-b border-gray-100 bg-white">
+    <View
+      className="flex-row px-4 py-3"
+      style={{ borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface }}
+    >
       <Avatar size={32} displayName={c.display_name} color={c.color} avatarUrl={c.avatar_url} />
       <View className="flex-1 ml-3">
         <View className="flex-row items-baseline">
-          <Text className="text-gray-900 font-semibold text-sm">{c.display_name}</Text>
-          <Text className="text-gray-400 text-[11px] ml-2">{relativeTime(c.created_at)}</Text>
+          <Text variant="captionStrong">{c.display_name}</Text>
+          <Text variant="tag" tone="subtle" style={{ marginLeft: 8 }}>{relativeTime(c.created_at)}</Text>
         </View>
-        <Text className="text-gray-700 text-sm mt-0.5">{c.body}</Text>
+        <Text variant="caption" style={{ marginTop: 2 }}>{c.body}</Text>
       </View>
     </View>
   );
@@ -86,30 +95,37 @@ export default function ActivityDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const myId = useAuthStore((s) => s.user?.id);
+  const { colors } = useTokens();
 
   const [detail, setDetail] = useState<ActivityDetail | null>(null);
   const [comments, setComments] = useState<ActivityComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
   const [liking, setLiking] = useState(false);
+  const toast = useToast();
 
   const load = useCallback(async (isRefresh = false) => {
     if (!id) return;
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
+    setLoadFailed(false);
     try {
       const [d, cs] = await Promise.all([
         getActivityDetail(id),
         listActivityComments(id, 50),
       ]);
       setDetail(d);
-      // newest-first from RPC; flip to chronological top→bottom for the inline thread
       setComments([...cs].reverse());
       if (!isRefresh && d) capture('activity_detail_opened', { activity_id: id });
     } catch (e) {
-      console.error('[activity-detail] load error:', e);
+      // Treat fetch failure as different from "no such activity" — the latter
+      // returns null without throwing. This way we don't show "Not found" when
+      // the user is just offline.
+      setLoadFailed(true);
+      if (__DEV__) console.error('[activity-detail] load error:', e);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -129,6 +145,7 @@ export default function ActivityDetailScreen() {
       capture('activity_liked', { activity_id: detail.activity_id, liked: res.liked });
     } catch {
       setDetail((d) => d ? { ...d, has_liked: !next, like_count: d.like_count + (next ? -1 : 1) } : d);
+      toast.show({ tone: 'error', message: 'Couldn’t update like — try again.' });
     } finally {
       setLiking(false);
     }
@@ -146,7 +163,8 @@ export default function ActivityDetailScreen() {
       setDraft('');
       capture('activity_commented', { activity_id: detail.activity_id });
     } catch (e) {
-      console.error('[activity-detail] post comment error:', e);
+      if (__DEV__) console.error('[activity-detail] post comment error:', e);
+      toast.show({ tone: 'error', message: 'Comment didn’t post. Try again.' });
     } finally {
       setPosting(false);
     }
@@ -165,24 +183,27 @@ export default function ActivityDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+      <SafeAreaView className="flex-1 bg-bg">
         <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator size="large" color="#6366F1" />
+        <ScreenState variant="loading" />
       </SafeAreaView>
     );
   }
   if (!detail) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
+      <SafeAreaView className="flex-1 bg-bg">
         <Stack.Screen options={{ headerShown: false }} />
         <View className="flex-row items-center px-2 py-2">
           <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="p-2">
-            <ChevronLeft size={24} color="#111827" />
+            <ChevronLeft size={24} color={colors.ink} />
           </TouchableOpacity>
         </View>
-        <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-gray-400 text-sm text-center">Activity not found or hidden.</Text>
-        </View>
+        <ScreenState
+          variant={loadFailed ? 'error' : 'empty'}
+          title={loadFailed ? 'Couldn’t load this activity' : 'Activity not found'}
+          message={loadFailed ? 'Check your connection and try again.' : 'It may have been deleted or hidden.'}
+          retry={loadFailed ? () => load() : undefined}
+        />
       </SafeAreaView>
     );
   }
@@ -193,50 +214,55 @@ export default function ActivityDetailScreen() {
   const title         = detail.title ?? autoTitle(detail.type, detail.started_at);
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         {/* Top bar */}
-        <View className="flex-row items-center px-2 py-2 bg-white border-b border-gray-100">
+        <View
+          className="flex-row items-center px-2 py-2"
+          style={{ backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}
+        >
           <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="p-2">
-            <ChevronLeft size={24} color="#111827" />
+            <ChevronLeft size={24} color={colors.ink} />
           </TouchableOpacity>
-          <Text className="text-base font-semibold text-gray-900 ml-1 flex-1">Activity</Text>
+          <Text variant="bodyStrong" style={{ marginLeft: 4, flex: 1 }}>Activity</Text>
           <TouchableOpacity onPress={onShare} hitSlop={12} className="p-2">
-            <Share2 size={20} color="#6B7280" />
+            <Share2 size={20} color={colors.inkMuted} />
           </TouchableOpacity>
         </View>
 
         <ScrollView
           contentContainerStyle={{ paddingBottom: 24 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor="#6366F1" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.accent} />}
         >
           {/* Header */}
-          <View className="bg-white px-4 pt-4 pb-2 flex-row items-center">
+          <View className="px-4 pt-4 pb-2 flex-row items-center" style={{ backgroundColor: colors.surface }}>
             <Pressable onPress={() => router.push(`/user/${detail.user_id}` as any)}>
               <Avatar size={48} displayName={detail.display_name} color={detail.color} avatarUrl={detail.avatar_url} />
             </Pressable>
             <View className="flex-1 ml-3">
               <View className="flex-row items-center">
-                <Text className="text-gray-900 font-semibold text-base">{detail.display_name}</Text>
+                <Text variant="bodyStrong">{detail.display_name}</Text>
                 {detail.visibility !== 'public' && (
-                  <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5 ml-2">
+                  <View
+                    className="flex-row items-center rounded-pill px-2 py-0.5 ml-2"
+                    style={{ backgroundColor: colors.surfaceAlt }}
+                  >
                     {detail.visibility === 'private'
-                      ? <Lock size={10} color="#6B7280" />
-                      : <Users size={10} color="#6B7280" />}
-                    <Text className="text-[10px] text-gray-500 ml-1 font-medium">
+                      ? <Lock size={10} color={colors.inkMuted} />
+                      : <Users size={10} color={colors.inkMuted} />}
+                    <Text variant="tag" tone="muted" style={{ marginLeft: 4 }}>
                       {detail.visibility === 'private' ? 'Only you' : 'Followers'}
                     </Text>
                   </View>
                 )}
               </View>
               <View className="flex-row items-center mt-0.5">
-                <TypeIcon type={detail.type} size={12} />
-                <Text className="text-gray-500 text-xs ml-1">
+                <TypeIcon type={detail.type} size={12} color={colors.accent} />
+                <Text variant="tag" tone="muted" style={{ marginLeft: 4 }}>
                   {new Date(detail.started_at).toLocaleString()}
                 </Text>
               </View>
@@ -244,46 +270,46 @@ export default function ActivityDetailScreen() {
           </View>
 
           {/* Title + description */}
-          <View className="bg-white px-4 pb-3">
-            <Text className="text-gray-900 font-bold text-2xl">{title}</Text>
+          <View className="px-4 pb-3" style={{ backgroundColor: colors.surface }}>
+            <Text variant="h2" tone="strong">{title}</Text>
             {detail.description ? (
-              <Text className="text-gray-700 text-base mt-2">{detail.description}</Text>
+              <Text variant="body" style={{ marginTop: 8 }}>{detail.description}</Text>
             ) : null}
           </View>
 
           {/* Stats grid */}
-          <View className="bg-white px-4 pb-4 flex-row flex-wrap">
+          <View className="px-4 pb-4 flex-row flex-wrap" style={{ backgroundColor: colors.surface }}>
             <View className="w-1/2 mb-3">
-              <Text className="text-gray-400 text-[10px] uppercase tracking-wider">Distance</Text>
-              <Text className="text-gray-900 text-lg font-bold mt-0.5">{formatDistance(detail.distance_m)}</Text>
+              <Text variant="tag" tone="subtle" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Distance</Text>
+              <Text variant="h3" tone="strong" style={{ marginTop: 2 }}>{formatDistance(detail.distance_m)}</Text>
             </View>
             <View className="w-1/2 mb-3">
-              <Text className="text-gray-400 text-[10px] uppercase tracking-wider">Duration</Text>
-              <Text className="text-gray-900 text-lg font-bold mt-0.5">{formatDuration(detail.duration_s)}</Text>
+              <Text variant="tag" tone="subtle" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Duration</Text>
+              <Text variant="h3" tone="strong" style={{ marginTop: 2 }}>{formatDuration(detail.duration_s)}</Text>
             </View>
             {showPace && (
               <View className="w-1/2 mb-3">
-                <Text className="text-gray-400 text-[10px] uppercase tracking-wider">Pace</Text>
-                <Text className="text-gray-900 text-lg font-bold mt-0.5">{formatPace(detail.distance_m, detail.duration_s)}</Text>
+                <Text variant="tag" tone="subtle" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Pace</Text>
+                <Text variant="h3" tone="strong" style={{ marginTop: 2 }}>{formatPace(detail.distance_m, detail.duration_s)}</Text>
               </View>
             )}
             {detail.area_captured_m2 > 0 && (
               <View className="w-1/2 mb-3">
-                <Text className="text-gray-400 text-[10px] uppercase tracking-wider">Area captured</Text>
-                <Text className="text-gray-900 text-lg font-bold mt-0.5">{formatArea(detail.area_captured_m2)}</Text>
+                <Text variant="tag" tone="subtle" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Area captured</Text>
+                <Text variant="h3" tone="strong" style={{ marginTop: 2 }}>{formatArea(detail.area_captured_m2)}</Text>
               </View>
             )}
             {showCalories && detail.calories ? (
               <View className="w-1/2 mb-3">
-                <Text className="text-gray-400 text-[10px] uppercase tracking-wider">Calories</Text>
-                <Text className="text-gray-900 text-lg font-bold mt-0.5">{detail.calories}</Text>
+                <Text variant="tag" tone="subtle" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Calories</Text>
+                <Text variant="h3" tone="strong" style={{ marginTop: 2 }}>{detail.calories}</Text>
               </View>
             ) : null}
           </View>
 
           {/* Map */}
           {(detail.capture_polygon_geojson || detail.trace_geojson) && (
-            <View className="bg-white">
+            <View style={{ backgroundColor: colors.surface }}>
               <StaticActivityMap
                 polygon={detail.capture_polygon_geojson}
                 path={detail.trace_geojson}
@@ -298,37 +324,41 @@ export default function ActivityDetailScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              className="bg-white"
+              style={{ backgroundColor: colors.surface }}
               contentContainerStyle={{ padding: 12 }}
             >
               {detail.photo_paths.map((path) => (
-                <Image
+                <ActivityPhoto
                   key={path}
-                  source={{ uri: activityPhotoUrl(path) }}
-                  style={{ width: 200, height: 200, borderRadius: 12, marginRight: 12 }}
+                  uri={activityPhotoUrl(path)}
+                  size={200}
+                  style={{ marginRight: 12 }}
                 />
               ))}
             </ScrollView>
           )}
 
           {/* Action row */}
-          <View className="flex-row items-center px-4 py-3 bg-white border-t border-gray-100 mt-2">
+          <View
+            className="flex-row items-center px-4 py-3 mt-2"
+            style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}
+          >
             <TouchableOpacity onPress={onToggleLike} hitSlop={8} className="flex-row items-center mr-6">
               <Heart
                 size={24}
-                color={detail.has_liked ? '#EF4444' : '#6B7280'}
-                fill={detail.has_liked ? '#EF4444' : 'transparent'}
+                color={detail.has_liked ? colors.danger : colors.inkMuted}
+                fill={detail.has_liked ? colors.danger : 'transparent'}
               />
               <Pressable onPress={() => router.push(`/activity/${detail.activity_id}/likes` as any)} hitSlop={8}>
-                <Text className="text-gray-700 text-sm font-medium ml-2">
+                <Text variant="captionStrong" style={{ marginLeft: 8 }}>
                   {detail.like_count} {detail.like_count === 1 ? 'like' : 'likes'}
                 </Text>
               </Pressable>
             </TouchableOpacity>
 
             <View className="flex-row items-center">
-              <MessageCircle size={22} color="#6B7280" />
-              <Text className="text-gray-700 text-sm font-medium ml-2">
+              <MessageCircle size={22} color={colors.inkMuted} />
+              <Text variant="captionStrong" style={{ marginLeft: 8 }}>
                 {detail.comment_count} {detail.comment_count === 1 ? 'comment' : 'comments'}
               </Text>
             </View>
@@ -337,8 +367,8 @@ export default function ActivityDetailScreen() {
           {/* Comments */}
           <View className="mt-2">
             {comments.length === 0 ? (
-              <View className="bg-white px-4 py-8 items-center">
-                <Text className="text-gray-400 text-sm">Be the first to comment</Text>
+              <View className="px-4 py-8 items-center" style={{ backgroundColor: colors.surface }}>
+                <Text variant="caption" tone="subtle">Be the first to comment</Text>
               </View>
             ) : (
               comments.map((c) => <CommentRow key={c.comment_id} c={c} />)
@@ -347,24 +377,37 @@ export default function ActivityDetailScreen() {
         </ScrollView>
 
         {/* Composer */}
-        <View className="border-t border-gray-200 bg-white px-3 py-2 flex-row items-center">
+        <View
+          className="px-3 py-2 flex-row items-center"
+          style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}
+        >
           <TextInput
             value={draft}
             onChangeText={setDraft}
             placeholder="Write a comment…"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.inkSubtle}
             multiline
             maxLength={1000}
-            className="flex-1 text-gray-900 text-sm px-3 py-2 bg-gray-100 rounded-full"
-            style={{ maxHeight: 120 }}
+            style={{
+              flex: 1,
+              color: colors.ink,
+              fontFamily: typography.body.fontFamily,
+              fontSize: 14,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              backgroundColor: colors.surfaceAlt,
+              borderRadius: 9999,
+              maxHeight: 120,
+            }}
           />
           <TouchableOpacity
             onPress={onPostComment}
             disabled={posting || draft.trim().length === 0}
-            className={`ml-2 p-2 rounded-full ${draft.trim().length > 0 ? 'bg-indigo-500' : 'bg-gray-200'}`}
+            className="ml-2 p-2 rounded-pill"
+            style={{ backgroundColor: draft.trim().length > 0 ? colors.accent : colors.surfaceAlt }}
             hitSlop={4}
           >
-            <Send size={18} color={draft.trim().length > 0 ? '#FFFFFF' : '#9CA3AF'} />
+            <Send size={18} color={draft.trim().length > 0 ? colors.ctaFg : colors.inkSubtle} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

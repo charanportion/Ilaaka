@@ -1,6 +1,10 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
 import { X, ChevronRight } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
+import { Text } from '@/components/ui/Text';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { useTokens } from '@/lib/useTokens';
 
 type ZoneFeature = {
   color: string;
@@ -33,9 +37,10 @@ export function ZoneInfoCard({ properties, onClose, onViewProfile }: Props) {
     color, owner_id, owner_username, owner_display_name, owner_avatar_url,
     captured_at, is_own,
   } = properties;
+  const { colors } = useTokens();
 
   return (
-    <View className="bg-white rounded-3xl mx-4 p-4 shadow-lg">
+    <Card padding={16} radius="xxl" elevation="standard" style={{ marginHorizontal: 16 }}>
       <View className="flex-row items-start">
         <TouchableOpacity
           onPress={() => onViewProfile(owner_id)}
@@ -51,29 +56,30 @@ export function ZoneInfoCard({ properties, onClose, onViewProfile }: Props) {
             />
           </View>
           <View className="flex-1">
-            <Text className="font-bold text-gray-900 text-base" numberOfLines={1}>
+            <Text variant="bodyStrong" tone="strong" numberOfLines={1}>
               {is_own ? 'Your zone' : owner_display_name}
             </Text>
-            <Text className="text-gray-500 text-xs" numberOfLines={1}>
+            <Text variant="tag" tone="muted" numberOfLines={1}>
               @{owner_username} · captured {relativeTime(captured_at)}
             </Text>
           </View>
-          {!is_own && <ChevronRight size={18} color="#9CA3AF" />}
+          {!is_own && <ChevronRight size={18} color={colors.inkSubtle} />}
         </TouchableOpacity>
         <TouchableOpacity onPress={onClose} hitSlop={12} className="ml-2 p-1">
-          <X color="#9CA3AF" size={20} />
+          <X color={colors.inkSubtle} size={20} />
         </TouchableOpacity>
       </View>
 
       {!is_own && (
-        <TouchableOpacity
+        <Button
+          label="View profile"
+          variant="secondary"
+          size="md"
+          fullWidth
           onPress={() => onViewProfile(owner_id)}
-          className="mt-3 bg-indigo-50 rounded-xl py-2.5 items-center"
-          activeOpacity={0.8}
-        >
-          <Text className="text-indigo-600 text-sm font-semibold">View profile</Text>
-        </TouchableOpacity>
+          style={{ marginTop: 12 }}
+        />
       )}
-    </View>
+    </Card>
   );
 }

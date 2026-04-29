@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import {
   Map,
   Camera,
@@ -20,9 +21,10 @@ import { fetchFriendsZones } from '@/lib/friends';
 import { useAuthStore } from '@/stores/auth-store';
 import { ZoneInfoCard } from './ZoneInfoCard';
 import { MapRecenterButton } from './MapRecenterButton';
+import { useMapStyleUrl } from '@/lib/theme';
+import { useTokens } from '@/lib/useTokens';
 import type { MergedZoneInBbox, ZoneFilter } from '@/types/api';
 
-const OSM_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const HYDERABAD: [number, number] = [78.3338, 17.4010]; // [lng, lat] fallback
 const INITIAL_ZOOM = 14;
 const MIN_FETCH_ZOOM = 10;
@@ -69,6 +71,7 @@ export function ZoneMap({ filter }: { filter: ZoneFilter }) {
   const [initialCenter, setInitialCenter] = useState<[number, number] | null>(null);
   const [zones, setZones] = useState<MergedZoneInBbox[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
   const [selectedZone, setSelectedZone] = useState<SelectedZoneProps | null>(null);
   const [bearing, setBearing] = useState(0);
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
@@ -82,6 +85,8 @@ export function ZoneMap({ filter }: { filter: ZoneFilter }) {
   const userLngLat: [number, number] | null = currentPosition?.coords
     ? [currentPosition.coords.longitude, currentPosition.coords.latitude]
     : null;
+  const mapStyle = useMapStyleUrl();
+  const { colors } = useTokens();
 
   useEffect(() => {
     Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
@@ -92,13 +97,15 @@ export function ZoneMap({ filter }: { filter: ZoneFilter }) {
   async function doFetch(bounds: LngLatBounds, activeFilter: ZoneFilter) {
     cancelRef.current = false;
     setLoading(true);
+    setFetchError(false);
     try {
       const zoneData = activeFilter === 'friends'
         ? await fetchFriendsZones(bounds)
         : await fetchZonePolygonsInBbox(bounds);
       if (!cancelRef.current) setZones(zoneData);
     } catch (e) {
-      console.error('[zone-map] fetch error:', e);
+      if (__DEV__) console.error('[zone-map] fetch error:', e);
+      if (!cancelRef.current) setFetchError(true);
     } finally {
       if (!cancelRef.current) setLoading(false);
     }
@@ -193,7 +200,7 @@ export function ZoneMap({ filter }: { filter: ZoneFilter }) {
   if (!initialCenter) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#6366F1" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -202,7 +209,7 @@ export function ZoneMap({ filter }: { filter: ZoneFilter }) {
     <View style={{ flex: 1 }}>
       <Map
         style={{ flex: 1 }}
-        mapStyle={OSM_STYLE}
+        mapStyle={mapStyle}
         logo={false}
         attribution={false}
         onRegionDidChange={handleRegionChange}
@@ -243,7 +250,29 @@ export function ZoneMap({ filter }: { filter: ZoneFilter }) {
 
       {loading && (
         <View style={{ position: 'absolute', top: 16, right: 16 }}>
-          <ActivityIndicator size="small" color="#6366F1" />
+          <ActivityIndicator size="small" color={colors.accent} />
+        </View>
+      )}
+
+      {fetchError && !loading && (
+        <View style={{
+          position: 'absolute', top: 16, left: 16, right: 16,
+          backgroundColor: colors.surface,
+          borderRadius: 12,
+          paddingVertical: 10, paddingHorizontal: 14,
+          flexDirection: 'row', alignItems: 'center',
+          shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+          elevation: 4,
+        }}>
+          <Text variant="caption" tone="strong" style={{ flex: 1 }}>
+            Couldn’t load zones — check your connection.
+          </Text>
+          <TouchableOpacity
+            onPress={() => bboxRef.current && doFetch(bboxRef.current, filter)}
+            style={{ marginLeft: 12, paddingVertical: 4, paddingHorizontal: 10, backgroundColor: colors.ctaBg, borderRadius: 999 }}
+          >
+            <Text variant="captionStrong" style={{ color: colors.ctaFg }}>Retry</Text>
+          </TouchableOpacity>
         </View>
       )}
 

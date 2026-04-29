@@ -7,24 +7,59 @@ const H3_RESOLUTION = 11;
 const MAX_CELLS = 50_000;
 const MAPBOX_MATCH_MAX_COORDS = 100; // Mapbox Map Matching API per-request limit
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+type ActivityType = 'run' | 'walk' | 'cycle' | 'hike';
+
+// `walking` matches OSM footways/paths/pedestrian — right for walks/runs/hikes.
+// `cycling` prefers cycleways + roads, avoiding footways.
+function mapboxProfileFor(type: ActivityType): 'walking' | 'cycling' {
+  return type === 'cycle' ? 'cycling' : 'walking';
+}
+
+if (!Deno.env.get('MAPBOX_TOKEN')) {
+  console.warn('[submit-activity] MAPBOX_TOKEN not set — map matching will be skipped for every submit');
+}
+
+// CORS allowlist. Native apps send no Origin header, so we always accept those.
+// Web origins are restricted to CORS_ALLOWED_ORIGINS (comma-separated). For a
+// native-only deploy, leave the env var unset.
+const ALLOWED_ORIGINS = (Deno.env.get('CORS_ALLOWED_ORIGINS') ?? '')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+
+function buildCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin');
+  const allow = !origin || ALLOWED_ORIGINS.includes(origin) ? (origin ?? '') : '';
+  return {
+    'Access-Control-Allow-Origin': allow,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  };
+}
 
 const SubmitSchema = z.object({
   type: z.enum(['run', 'walk', 'cycle', 'hike']),
   started_at: z.string().datetime(),
   ended_at: z.string().datetime(),
+  // Idempotency — client generates a UUID per pending activity. Replaying the
+  // same key returns the original activity_id instead of double-claiming cells.
+  idempotency_key: z.string().uuid().optional(),
   trace: z.object({
     type: z.literal('LineString'),
-    coordinates: z.array(z.tuple([z.number(), z.number()])).min(2),
+    // Hard caps on coordinate values + array length: rejects forged payloads
+    // and prevents OOM in the Edge Function's 256 MB sandbox.
+    coordinates: z.array(
+      z.tuple([
+        z.number().min(-180).max(180),
+        z.number().min(-90).max(90),
+      ])
+    ).min(2).max(50_000),
   }),
   samples: z.object({
-    timestamps: z.array(z.number()),
-    accuracy_m: z.array(z.number()),
+    timestamps: z.array(z.number().int().nonnegative()).max(50_000),
+    accuracy_m: z.array(z.number().nonnegative().max(10_000)).max(50_000),
   }),
-  client_calories: z.number().int().positive().optional(),
+  client_calories: z.number().int().nonnegative().max(20_000).optional(),
+  elevation_gain_m: z.number().nonnegative().max(20_000).optional(),
   // Phase 7 metadata — all optional for back-compat with older clients.
   title:         z.string().min(1).max(80).optional(),
   description:   z.string().max(2000).optional(),
@@ -33,14 +68,23 @@ const SubmitSchema = z.object({
   hide_calories: z.boolean().optional(),
   // Storage paths the client already uploaded under <user_id>/draft/<local_id>/<i>.<ext>.
   // The Edge Function moves them into <user_id>/<activity_id>/<i>.<ext> after the row is created.
-  photo_paths:   z.array(z.string().min(1)).max(5).optional(),
-});
+  photo_paths:   z.array(z.string().min(1).max(512)).max(5).optional(),
+}).refine(
+  (d) => new Date(d.ended_at).getTime() > new Date(d.started_at).getTime(),
+  { message: 'ended_at must be after started_at', path: ['ended_at'] },
+);
 
-function json(body: unknown, status = 200) {
+function json(body: unknown, status = 200, cors: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...cors, 'Content-Type': 'application/json' },
   });
+}
+
+// Generate a short request id for log correlation. Returned to the client so
+// they can quote it in a bug report without us leaking server internals.
+function newRequestId(): string {
+  return crypto.randomUUID().slice(0, 8);
 }
 
 // Mirrors apps/mobile/lib/distance.ts haversineMeters
@@ -94,21 +138,19 @@ type LineStringGeoJson = { type: 'LineString'; coordinates: [number, number][] }
 
 // Snap raw GPS to the OSM road graph via Mapbox Matching API.
 // Returns null on any failure — caller treats matching as best-effort.
-async function matchToRoads(coords: [number, number][]): Promise<LineStringGeoJson | null> {
+async function matchToRoads(coords: [number, number][], type: ActivityType): Promise<LineStringGeoJson | null> {
   const token = Deno.env.get('MAPBOX_TOKEN');
-  if (!token) {
-    console.log('[match] MAPBOX_TOKEN not set in Edge Function environment');
-    return null;
-  }
+  if (!token) return null;
   const sampled = downsampleCoords(coords, MAPBOX_MATCH_MAX_COORDS);
   if (sampled.length < 2) {
     console.log('[match] sampled <2 points, skipping');
     return null;
   }
+  const profile = mapboxProfileFor(type);
   const path = sampled.map(([lng, lat]) => `${lng.toFixed(6)},${lat.toFixed(6)}`).join(';');
   const radiuses = sampled.map(() => 50).join(';'); // 50m radius — generous for sparse OSM
   const url =
-    `https://api.mapbox.com/matching/v5/mapbox/walking/${path}` +
+    `https://api.mapbox.com/matching/v5/mapbox/${profile}/${path}` +
     `?geometries=geojson&overview=full&radiuses=${radiuses}&tidy=true&access_token=${token}`;
   try {
     const res = await fetch(url);
@@ -127,7 +169,9 @@ async function matchToRoads(coords: [number, number][]): Promise<LineStringGeoJs
       console.log('[match] response had no matched geometry');
       return null;
     }
-    console.log(`[match] success: input=${coords.length} sampled=${sampled.length} matched=${geom.coordinates?.length}`);
+    if (Deno.env.get('DEBUG_MATCH') === '1') {
+      console.log(`[match] success profile=${profile} matched=true`);
+    }
     return geom;
   } catch (e) {
     console.log('[match] fetch threw:', e instanceof Error ? e.message : String(e));
@@ -263,10 +307,14 @@ async function moveAndRecordPhotos(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  const cors = buildCorsHeaders(req);
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405, cors);
+
+  const requestId = newRequestId();
 
   const authHeader = req.headers.get('Authorization');
-  if (!authHeader) return json({ error: 'unauthorized' }, 401);
+  if (!authHeader) return json({ error: 'unauthorized' }, 401, cors);
 
   // Identify the caller via their JWT
   const userClient = createClient(
@@ -275,26 +323,33 @@ Deno.serve(async (req) => {
     { global: { headers: { Authorization: authHeader } } },
   );
   const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return json({ error: 'unauthorized' }, 401);
+  if (!user) return json({ error: 'unauthorized' }, 401, cors);
 
   // Parse + Zod-validate request body
   let rawBody: unknown;
   try {
     rawBody = await req.json();
   } catch {
-    return json({ error: 'invalid_json' }, 400);
+    return json({ error: 'invalid_json' }, 400, cors);
   }
 
   const parsed = SubmitSchema.safeParse(rawBody);
-  if (!parsed.success) return json({ error: 'invalid', issues: parsed.error.issues }, 400);
+  if (!parsed.success) {
+    // Return only the first issue path; full issues only in dev.
+    const firstIssue = parsed.error.issues[0];
+    const issuePath = firstIssue ? firstIssue.path.join('.') : '';
+    return json({ error: 'invalid', field: issuePath, request_id: requestId }, 400, cors);
+  }
 
   const {
     type,
     started_at,
     ended_at,
+    idempotency_key,
     trace,
     samples,
     client_calories,
+    elevation_gain_m,
     title,
     description,
     visibility,
@@ -306,19 +361,28 @@ Deno.serve(async (req) => {
 
   // ── Validation rules (all in JS, before any DB write) ──────────────────────
 
-  if (coords.length < 20) return json({ error: 'too_few_points' }, 400);
+  if (coords.length < 20) return json({ error: 'too_few_points' }, 400, cors);
+
+  // Sample arrays should match trace length within reason. Reject obviously
+  // forged payloads where samples claim 50000 entries but trace has 50.
+  if (samples.timestamps.length > coords.length + 1000 ||
+      samples.accuracy_m.length > coords.length + 1000) {
+    return json({ error: 'sample_length_mismatch' }, 400, cors);
+  }
 
   const durationS = Math.round(
     (new Date(ended_at).getTime() - new Date(started_at).getTime()) / 1000,
   );
-  if (durationS < 60) return json({ error: 'too_short' }, 400);
+  if (durationS < 60) return json({ error: 'too_short' }, 400, cors);
+  if (durationS > 86_400) return json({ error: 'too_long' }, 400, cors);
 
   const distanceM = traceDistanceM(coords);
-  if (distanceM < 250) return json({ error: 'too_short_distance' }, 400);
+  if (distanceM < 250) return json({ error: 'too_short_distance' }, 400, cors);
+  if (distanceM > 500_000) return json({ error: 'too_long_distance' }, 400, cors);
 
   if (samples.accuracy_m.length > 0) {
     const avgAccuracy = samples.accuracy_m.reduce((a, b) => a + b, 0) / samples.accuracy_m.length;
-    if (avgAccuracy > 50) return json({ error: 'gps_quality' }, 400);
+    if (avgAccuracy > 50) return json({ error: 'gps_quality' }, 400, cors);
   }
 
   if (samples.timestamps.length >= 2) {
@@ -326,11 +390,11 @@ Deno.serve(async (req) => {
     for (let i = 1; i < samples.timestamps.length; i++) {
       maxGap = Math.max(maxGap, (samples.timestamps[i] - samples.timestamps[i - 1]) / 1000);
     }
-    if (maxGap > 120) return json({ error: 'discontinuous_trace' }, 400);
+    if (maxGap > 120) return json({ error: 'discontinuous_trace' }, 400, cors);
   }
 
   const avgSpeedKmh = (distanceM / 1000) / (durationS / 3600);
-  if (avgSpeedKmh < 3 || avgSpeedKmh > 50) return json({ error: 'implausible_pace' }, 400);
+  if (avgSpeedKmh < 3 || avgSpeedKmh > 50) return json({ error: 'implausible_pace' }, 400, cors);
 
   // ── Service-role client for writes ─────────────────────────────────────────
 
@@ -338,6 +402,46 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
+
+  // ── Idempotency short-circuit ──────────────────────────────────────────────
+  // Replay-safe: if the client retries a submit (network drop), we return the
+  // original activity_id instead of inserting a duplicate.
+  if (idempotency_key) {
+    const { data: existing } = await admin
+      .from('activities')
+      .select('id, cells_captured')
+      .eq('user_id', user.id)
+      .eq('idempotency_key', idempotency_key)
+      .maybeSingle();
+    if (existing) {
+      return json({
+        activity_id:     existing.id,
+        cells_captured:  existing.cells_captured,
+        cells_lost:      [],
+        replayed:        true,
+      }, 200, cors);
+    }
+  }
+
+  // ── Rate limit ─────────────────────────────────────────────────────────────
+  const { data: rateRow, error: rateErr } = await admin.rpc('check_and_bump_submit_rate', {
+    p_user_id: user.id,
+    p_max_per_hour: 30,
+  });
+  if (rateErr) {
+    console.error(`[${requestId}] rate-check failed:`, rateErr.message);
+    // Fail open on rate limiter errors — don't block legit users if the table
+    // is wedged, but log loudly so we notice.
+  } else {
+    const r = (rateRow as { allowed: boolean; count_in_window: number; retry_after_s: number }[] | null)?.[0];
+    if (r && !r.allowed) {
+      return json({
+        error: 'rate_limited',
+        retry_after_s: r.retry_after_s,
+        request_id: requestId,
+      }, 429, { ...cors, 'Retry-After': String(r.retry_after_s) });
+    }
+  }
 
   // ── Insert activity row ─────────────────────────────────────────────────────
 
@@ -351,6 +455,7 @@ Deno.serve(async (req) => {
       duration_s:    durationS,
       distance_m:    distanceM,
       calories:      client_calories ?? null,
+      elevation_gain_m: elevation_gain_m ?? 0,
       trace:         `SRID=4326;${lineStringWkt(coords)}`,
       status:        'processing',
       title:         title ?? null,
@@ -358,12 +463,31 @@ Deno.serve(async (req) => {
       visibility:    visibility ?? 'public',
       hide_pace:     hide_pace ?? false,
       hide_calories: hide_calories ?? false,
+      idempotency_key: idempotency_key ?? null,
     })
     .select('id')
     .single();
 
   if (insertErr || !activity) {
-    return json({ error: 'insert_failed', detail: insertErr?.message }, 500);
+    // The unique idempotency index might have raced us — try the lookup again.
+    if (idempotency_key && insertErr?.code === '23505') {
+      const { data: raced } = await admin
+        .from('activities')
+        .select('id, cells_captured')
+        .eq('user_id', user.id)
+        .eq('idempotency_key', idempotency_key)
+        .maybeSingle();
+      if (raced) {
+        return json({
+          activity_id: raced.id,
+          cells_captured: raced.cells_captured,
+          cells_lost: [],
+          replayed: true,
+        }, 200, cors);
+      }
+    }
+    console.error(`[${requestId}] activity insert failed:`, insertErr?.message);
+    return json({ error: 'processing_failed', request_id: requestId }, 500, cors);
   }
 
   const activityId = activity.id as string;
@@ -388,7 +512,7 @@ Deno.serve(async (req) => {
       await admin.from('activities')
         .update({ status: 'failed', rejection_reason: 'too_large' })
         .eq('id', activityId);
-      return json({ error: 'too_large' }, 400);
+      return json({ error: 'too_large' }, 400, cors);
     }
 
     // 3. Build WKT boundary strings for each cell
@@ -414,7 +538,7 @@ Deno.serve(async (req) => {
     // Best-effort: snap raw GPS to roads via Mapbox so the map shows a clean
     // street-following polyline. Never fail the request if matching errors.
     try {
-      const matchedGeom = await matchToRoads(coords);
+      const matchedGeom = await matchToRoads(coords, type);
       if (matchedGeom) {
         await admin.rpc('set_matched_trace', {
           p_activity_id:     activityId,
@@ -455,14 +579,15 @@ Deno.serve(async (req) => {
       activity_id:    activityId,
       cells_captured: result.cells_captured,
       cells_lost:     result.displaced ?? [],
-    });
+    }, 200, cors);
 
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[submit-activity] capture pipeline failed:', message, err instanceof Error ? err.stack : '');
+    // Real error stays in server logs; client gets a generic code + request id.
+    console.error(`[${requestId}] capture pipeline failed:`, message, err instanceof Error ? err.stack : '');
     await admin.from('activities')
       .update({ status: 'failed', rejection_reason: message.slice(0, 200) })
       .eq('id', activityId);
-    return json({ error: 'capture_failed', detail: message }, 500);
+    return json({ error: 'processing_failed', request_id: requestId }, 500, cors);
   }
 });

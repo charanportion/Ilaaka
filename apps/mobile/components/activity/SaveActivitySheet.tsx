@@ -1,12 +1,18 @@
 import { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert,
+  View, TextInput, TouchableOpacity, ScrollView, Image, Alert,
   ActivityIndicator, KeyboardAvoidingView, Platform, Switch, Pressable,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, X, Globe, Users, Lock } from 'lucide-react-native';
 import { uploadActivityPhotoDraft, deleteDraftPhoto } from '@/lib/storage';
+import { showPermissionDenied } from '@/lib/permissions';
 import { estimateCalories } from '@/lib/calories';
+import { Text } from '@/components/ui/Text';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { useTokens } from '@/lib/useTokens';
+import { typography } from '@/lib/design-tokens';
 import type { ActivityMetadata, ActivityType, ActivityVisibility } from '@/types/api';
 
 const MAX_PHOTOS = 5;
@@ -41,22 +47,43 @@ function VisibilityOption({
   icon:    React.ReactNode;
   onSelect: (v: ActivityVisibility) => void;
 }) {
+  const { colors } = useTokens();
   const selected = current === value;
   return (
     <TouchableOpacity
       onPress={() => onSelect(value)}
       activeOpacity={0.7}
-      className={`flex-row items-center px-4 py-3 rounded-2xl mb-2 ${
-        selected ? 'bg-indigo-500' : 'bg-gray-100'
-      }`}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 16,
+        marginBottom: 8,
+        backgroundColor: selected ? colors.ctaBg : colors.surfaceAlt,
+      }}
     >
-      <View className="mr-3">{icon}</View>
-      <Text className={`flex-1 text-sm font-semibold ${selected ? 'text-white' : 'text-gray-900'}`}>
+      <View style={{ marginRight: 12 }}>{icon}</View>
+      <Text
+        variant="bodyStrong"
+        style={{ flex: 1, color: selected ? colors.ctaFg : colors.ink }}
+      >
         {label}
       </Text>
       {selected && (
-        <View className="w-5 h-5 rounded-full bg-white items-center justify-center">
-          <View className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+        <View
+          style={{
+            width: 20, height: 20, borderRadius: 10,
+            backgroundColor: colors.ctaFg,
+            alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <View
+            style={{
+              width: 10, height: 10, borderRadius: 5,
+              backgroundColor: colors.ctaBg,
+            }}
+          />
         </View>
       )}
     </TouchableOpacity>
@@ -67,6 +94,7 @@ export function SaveActivitySheet({
   userId, localId, type, startedAt, distanceM, durationS,
   onPublish, onDiscard, publishing,
 }: Props) {
+  const { colors } = useTokens();
   const [title, setTitle]                 = useState('');
   const [description, setDescription]     = useState('');
   const [visibility, setVisibility]       = useState<ActivityVisibility>('public');
@@ -82,7 +110,7 @@ export function SaveActivitySheet({
     if (photos.length >= MAX_PHOTOS || uploading) return;
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow photo library access to add photos.');
+      showPermissionDenied('Photo library', 'add photos to your activity');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -133,172 +161,195 @@ export function SaveActivitySheet({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      className="flex-1 bg-gray-50"
+      className="flex-1 bg-bg"
     >
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
         {/* Quick stats summary */}
-        <View className="bg-white rounded-2xl p-4 mb-4 flex-row">
+        <Card padding={16} elevation="whisper" style={{ marginBottom: 16, flexDirection: 'row' }}>
           <View className="flex-1 items-center">
-            <Text className="text-xl font-bold text-indigo-600">{(distanceM / 1000).toFixed(2)}</Text>
-            <Text className="text-[10px] text-gray-500 uppercase tracking-wider mt-1">km</Text>
+            <Text variant="h3" style={{ color: colors.accent }}>{(distanceM / 1000).toFixed(2)}</Text>
+            <Text variant="tag" tone="muted" style={{ marginTop: 4, textTransform: 'uppercase' }}>km</Text>
           </View>
-          <View className="w-px bg-gray-100" />
+          <View style={{ width: 1, backgroundColor: colors.border }} />
           <View className="flex-1 items-center">
-            <Text className="text-xl font-bold text-indigo-600">{Math.floor(durationS / 60)}</Text>
-            <Text className="text-[10px] text-gray-500 uppercase tracking-wider mt-1">min</Text>
+            <Text variant="h3" style={{ color: colors.accent }}>{Math.floor(durationS / 60)}</Text>
+            <Text variant="tag" tone="muted" style={{ marginTop: 4, textTransform: 'uppercase' }}>min</Text>
           </View>
-          <View className="w-px bg-gray-100" />
+          <View style={{ width: 1, backgroundColor: colors.border }} />
           <View className="flex-1 items-center">
-            <Text className="text-xl font-bold text-indigo-600">{calories}</Text>
-            <Text className="text-[10px] text-gray-500 uppercase tracking-wider mt-1">kcal</Text>
+            <Text variant="h3" style={{ color: colors.accent }}>{calories}</Text>
+            <Text variant="tag" tone="muted" style={{ marginTop: 4, textTransform: 'uppercase' }}>kcal</Text>
           </View>
-        </View>
+        </Card>
 
         {/* Title */}
-        <View className="bg-white rounded-2xl p-4 mb-4">
-          <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Title</Text>
+        <Card padding={16} elevation="whisper" style={{ marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase' }}>Title</Text>
+            <Text variant="tag" tone={title.length >= MAX_TITLE ? 'warning' : 'subtle'}>
+              {title.length}/{MAX_TITLE}
+            </Text>
+          </View>
           <TextInput
             value={title}
             onChangeText={setTitle}
             placeholder={placeholder}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.inkSubtle}
             maxLength={MAX_TITLE}
-            className="text-base text-gray-900"
+            style={{
+              fontFamily: typography.body.fontFamily,
+              fontSize: typography.body.fontSize,
+              color: colors.ink,
+            }}
           />
-        </View>
+        </Card>
 
         {/* Description */}
-        <View className="bg-white rounded-2xl p-4 mb-4">
-          <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Description</Text>
+        <Card padding={16} elevation="whisper" style={{ marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase' }}>Description</Text>
+            <Text variant="tag" tone={description.length >= MAX_DESC ? 'warning' : 'subtle'}>
+              {description.length}/{MAX_DESC}
+            </Text>
+          </View>
           <TextInput
             value={description}
             onChangeText={setDescription}
             placeholder="How did it go?"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.inkSubtle}
             maxLength={MAX_DESC}
             multiline
-            className="text-base text-gray-900"
-            style={{ minHeight: 80, textAlignVertical: 'top' }}
+            style={{
+              fontFamily: typography.body.fontFamily,
+              fontSize: typography.body.fontSize,
+              color: colors.ink,
+              minHeight: 80,
+              textAlignVertical: 'top',
+            }}
           />
-        </View>
+        </Card>
 
         {/* Photos */}
-        <View className="bg-white rounded-2xl p-4 mb-4">
-          <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+        <Card padding={16} elevation="whisper" style={{ marginBottom: 16 }}>
+          <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase', marginBottom: 12 }}>
             Photos ({photos.length}/{MAX_PHOTOS})
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <Pressable
               onPress={pickPhoto}
               disabled={photos.length >= MAX_PHOTOS || uploading}
-              className={`w-20 h-20 mr-3 rounded-xl items-center justify-center ${
-                photos.length >= MAX_PHOTOS ? 'bg-gray-100' : 'bg-indigo-50'
-              }`}
+              style={{
+                width: 80, height: 80, marginRight: 12, borderRadius: 16,
+                alignItems: 'center', justifyContent: 'center',
+                backgroundColor: photos.length >= MAX_PHOTOS ? colors.surfaceAlt : colors.surfaceAlt,
+                borderWidth: 1, borderColor: colors.border,
+              }}
             >
               {uploading
-                ? <ActivityIndicator color="#6366F1" />
-                : <Camera size={24} color={photos.length >= MAX_PHOTOS ? '#9CA3AF' : '#6366F1'} />}
+                ? <ActivityIndicator color={colors.accent} />
+                : <Camera size={24} color={photos.length >= MAX_PHOTOS ? colors.inkSubtle : colors.accent} />}
             </Pressable>
             {photos.map((photo, i) => (
-              <View key={photo.path} className="mr-3">
-                <Image source={{ uri: photo.uri }} style={{ width: 80, height: 80, borderRadius: 12 }} />
+              <View key={photo.path} style={{ marginRight: 12 }}>
+                <Image source={{ uri: photo.uri }} style={{ width: 80, height: 80, borderRadius: 16 }} />
                 <TouchableOpacity
                   onPress={() => removePhoto(i)}
-                  className="absolute -top-1.5 -right-1.5 bg-gray-900 rounded-full p-1"
+                  style={{
+                    position: 'absolute', top: -6, right: -6,
+                    backgroundColor: colors.inkStrong, borderRadius: 9999, padding: 4,
+                  }}
                   hitSlop={6}
                 >
-                  <X size={12} color="white" />
+                  <X size={12} color={colors.surface} />
                 </TouchableOpacity>
               </View>
             ))}
           </ScrollView>
-        </View>
+        </Card>
 
         {/* Visibility */}
-        <View className="bg-white rounded-2xl p-4 mb-4">
-          <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Visibility</Text>
+        <Card padding={16} elevation="whisper" style={{ marginBottom: 16 }}>
+          <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase', marginBottom: 12 }}>Visibility</Text>
           <VisibilityOption
             current={visibility} value="public"
             label="Everyone"
-            icon={<Globe size={18} color={visibility === 'public' ? 'white' : '#6B7280'} />}
+            icon={<Globe size={18} color={visibility === 'public' ? colors.ctaFg : colors.inkMuted} />}
             onSelect={setVisibility}
           />
           <VisibilityOption
             current={visibility} value="followers"
             label="Followers only"
-            icon={<Users size={18} color={visibility === 'followers' ? 'white' : '#6B7280'} />}
+            icon={<Users size={18} color={visibility === 'followers' ? colors.ctaFg : colors.inkMuted} />}
             onSelect={setVisibility}
           />
           <VisibilityOption
             current={visibility} value="private"
             label="Only you"
-            icon={<Lock size={18} color={visibility === 'private' ? 'white' : '#6B7280'} />}
+            icon={<Lock size={18} color={visibility === 'private' ? colors.ctaFg : colors.inkMuted} />}
             onSelect={setVisibility}
           />
-        </View>
+        </Card>
 
         {/* Hidden details */}
-        <View className="bg-white rounded-2xl p-4 mb-4">
-          <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Hide details</Text>
+        <Card padding={16} elevation="whisper" style={{ marginBottom: 16 }}>
+          <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase', marginBottom: 12 }}>Hide details</Text>
 
           <View className="flex-row items-center justify-between py-2">
             <View className="flex-1">
-              <Text className="text-sm text-gray-900 font-medium">Hide pace</Text>
-              <Text className="text-xs text-gray-400 mt-0.5">Other people won&apos;t see your pace</Text>
+              <Text variant="bodyStrong">Hide pace</Text>
+              <Text variant="tag" tone="subtle" style={{ marginTop: 2 }}>Other people won&apos;t see your pace</Text>
             </View>
             <Switch
               value={hidePace}
               onValueChange={setHidePace}
-              trackColor={{ false: '#E5E7EB', true: '#A5B4FC' }}
-              thumbColor={hidePace ? '#6366F1' : '#FFFFFF'}
+              trackColor={{ false: colors.border, true: colors.accent }}
+              thumbColor={colors.surface}
             />
           </View>
 
-          <View className="h-px bg-gray-100 my-1" />
+          <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
 
           <View className="flex-row items-center justify-between py-2">
             <View className="flex-1">
-              <Text className="text-sm text-gray-900 font-medium">Hide calories</Text>
-              <Text className="text-xs text-gray-400 mt-0.5">Other people won&apos;t see your calorie estimate</Text>
+              <Text variant="bodyStrong">Hide calories</Text>
+              <Text variant="tag" tone="subtle" style={{ marginTop: 2 }}>Other people won&apos;t see your calorie estimate</Text>
             </View>
             <Switch
               value={hideCalories}
               onValueChange={setHideCalories}
-              trackColor={{ false: '#E5E7EB', true: '#A5B4FC' }}
-              thumbColor={hideCalories ? '#6366F1' : '#FFFFFF'}
+              trackColor={{ false: colors.border, true: colors.accent }}
+              thumbColor={colors.surface}
             />
           </View>
-        </View>
+        </Card>
       </ScrollView>
 
-      {/* Sticky publish bar */}
+      {/* Publish bar — docked at the bottom via flex, sits above the tab bar */}
       <View
-        className="bg-white border-t border-gray-200 px-4 py-3"
-        style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}
+        style={{
+          backgroundColor: colors.surface,
+          borderTopWidth: 1, borderTopColor: colors.border,
+          paddingHorizontal: 16, paddingVertical: 12,
+        }}
       >
-        <View className="flex-row gap-3">
-          <TouchableOpacity
+        <View style={{ flexDirection: 'row' }}>
+          <Button
+            label="Discard"
+            variant="secondary"
+            size="lg"
             onPress={onDiscard}
             disabled={publishing}
-            className="flex-1 bg-gray-100 rounded-2xl py-4 items-center"
-            activeOpacity={0.8}
-          >
-            <Text className="text-gray-600 font-semibold text-base">Discard</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+            style={{ flex: 1, marginRight: 6,justifyContent: "center" }}
+          />
+          <Button
+            label="Publish"
+            variant="primary"
+            size="lg"
             onPress={handlePublish}
+            loading={publishing}
             disabled={publishing || uploading}
-            className={`flex-1 rounded-2xl py-4 items-center ${
-              publishing || uploading ? 'bg-indigo-300' : 'bg-indigo-500'
-            }`}
-            activeOpacity={0.8}
-          >
-            {publishing ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text className="text-white font-semibold text-base">Publish</Text>
-            )}
-          </TouchableOpacity>
+            style={{ flex: 1, marginLeft: 6, justifyContent: "center" }}
+          />
         </View>
       </View>
     </KeyboardAvoidingView>

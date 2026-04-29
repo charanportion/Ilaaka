@@ -1,11 +1,14 @@
 import { useCallback, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { fetchFriendsFeed } from '@/lib/friends';
 import { capture } from '@/lib/analytics';
 import { ActivityCard } from '@/components/feed/ActivityCard';
+import { Text } from '@/components/ui/Text';
+import { Button } from '@/components/ui/Button';
+import { ScreenState } from '@/components/ScreenState';
 import type { FeedItem } from '@/types/api';
 
 export default function FeedScreen() {
@@ -13,34 +16,53 @@ export default function FeedScreen() {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function load(isRefresh = false) {
+  const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
+    setError(null);
     try {
       const data = await fetchFriendsFeed(20);
       setItems(data);
       if (!isRefresh) capture('feed_opened', { item_count: data.length });
-    } catch {
-      // keep stale data on error
+    } catch (e) {
+      // Keep any stale data so the user can still scroll, but surface the error
+      // when there is no data to fall back to.
+      setError(e instanceof Error ? e.message : 'fetch_failed');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }
+  }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-100 items-center justify-center">
-        <ActivityIndicator size="large" color="#6366F1" />
+      <SafeAreaView edges={['top']} className="flex-1 bg-bg">
+        <ScreenState variant="loading" />
+      </SafeAreaView>
+    );
+  }
+
+  // Hard error path — only when we have nothing to show. If we have stale
+  // items, show them and let pull-to-refresh trigger the retry.
+  if (error && items.length === 0) {
+    return (
+      <SafeAreaView edges={['top']} className="flex-1 bg-bg">
+        <ScreenState
+          variant="error"
+          title="Couldn’t load your feed"
+          message="Check your connection and try again."
+          retry={() => load()}
+        />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-100">
+    <SafeAreaView edges={['top']} className="flex-1 bg-bg">
       <FlatList
         data={items}
         keyExtractor={(item) => item.activity_id}
@@ -49,15 +71,15 @@ export default function FeedScreen() {
         refreshing={refreshing}
         ListEmptyComponent={
           <View className="flex-1 items-center justify-center pt-24 px-8">
-            <Text className="text-gray-400 text-sm text-center mb-4">
+            <Text variant="caption" tone="subtle" align="center" style={{ marginBottom: 16 }}>
               Follow people to see their activities here.
             </Text>
-            <TouchableOpacity
+            <Button
+              label="Find friends"
+              variant="primary"
+              size="md"
               onPress={() => router.push('/(app)/friends')}
-              className="bg-indigo-500 px-5 py-2.5 rounded-full"
-            >
-              <Text className="text-white font-semibold text-sm">Find friends</Text>
-            </TouchableOpacity>
+            />
           </View>
         }
         contentContainerStyle={items.length === 0 ? { flex: 1 } : undefined}

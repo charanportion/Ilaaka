@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { View, Text, Image } from 'react-native';
+import { typography } from '@/lib/design-tokens';
 
 // avatar_url encodes one of three things:
 //   null / undefined  → render the colored initial circle
@@ -29,12 +31,15 @@ export function Avatar({ size = 40, displayName, color, avatarUrl }: Props) {
   const radius   = size / 2;
   const fontSize = Math.round(size * 0.42);
   const emojiSize = Math.round(size * 0.55);
+  const [imageFailed, setImageFailed] = useState(false);
 
-  // Photo upload
-  if (avatarUrl && !isPresetAvatar(avatarUrl)) {
+  // Photo upload — fall through to the initials/preset placeholder on load error
+  // so a dead URL doesn't leave a blank circle.
+  if (avatarUrl && !isPresetAvatar(avatarUrl) && !imageFailed) {
     return (
       <Image
         source={{ uri: avatarUrl }}
+        onError={() => setImageFailed(true)}
         style={{ width: size, height: size, borderRadius: radius, backgroundColor: color }}
       />
     );
@@ -70,7 +75,7 @@ export function Avatar({ size = 40, displayName, color, avatarUrl }: Props) {
         justifyContent: 'center',
       }}
     >
-      <Text style={{ color: '#fff', fontWeight: '700', fontSize }}>
+      <Text style={{ color: '#ffffff', fontFamily: typography.bodyStrong.fontFamily, fontSize }}>
         {displayName.charAt(0).toUpperCase()}
       </Text>
     </View>

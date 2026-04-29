@@ -1,38 +1,67 @@
-// One-shot script to generate v0 placeholder app icons + splash from SVG.
+// One-shot script to generate monochrome app icons + splash from SVG.
 // Run: node scripts/generate-icons.mjs
 //
 // Outputs to apps/mobile/assets/images/:
-//   icon.png                       1024x1024 (universal)
-//   android-icon-foreground.png    1024x1024 (transparent bg, "I" mark inside safe zone)
-//   android-icon-background.png    1024x1024 (solid #7F77DD, paired with foreground)
+//   icon.png                       1024x1024 (universal — black with white "I")
+//   android-icon-foreground.png    1024x1024 (transparent bg, white "I" inside safe zone)
+//   android-icon-background.png    1024x1024 (solid black, paired with foreground)
 //   android-icon-monochrome.png    1024x1024 (white "I" on transparent — Android 13 themed icons)
-//   splash-icon.png                512x512   (centered on white via expo-splash-screen plugin)
+//   splash-icon.png                512x512   (rounded black square with white "I", on white backdrop)
 //   favicon.png                    48x48     (web)
 
 import sharp from 'sharp';
-import { writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(__dirname, '..', 'assets', 'images');
 
-const BRAND       = '#7F77DD';
-const BRAND_DEEP  = '#5B53B5';
-const WHITE       = '#FFFFFF';
+// Strict monochrome — matches the app's black/white design system.
+const BLACK = '#000000';
+const WHITE = '#FFFFFF';
 
-// Adaptive icon foreground — keep all visible content within the inner 66% safe zone
-// to avoid being clipped by Android's circle/squircle masks.
+// Geometric "I" mark — drawn as three rectangles (top serif, vertical stem,
+// bottom serif) so it's pixel-perfect centered regardless of how an SVG
+// renderer handles text-anchor + dominant-baseline. Classic slab-serif I.
+function iMark(size, color, opts = {}) {
+  const heightFrac = opts.heightFrac ?? 0.55;        // total mark height vs canvas
+  const stemWidthFrac = opts.stemWidthFrac ?? 0.13;  // vertical stem width
+  const serifWidthFrac = opts.serifWidthFrac ?? 0.42; // horizontal serif width
+  const serifHeightFrac = opts.serifHeightFrac ?? 0.085; // serif thickness
+
+  const totalH = size * heightFrac;
+  const stemW  = size * stemWidthFrac;
+  const serifW = size * serifWidthFrac;
+  const serifH = size * serifHeightFrac;
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const top    = cy - totalH / 2;
+  const bottom = cy + totalH / 2;
+
+  // Top serif
+  const topX = cx - serifW / 2;
+  const topY = top;
+  // Stem
+  const stemX = cx - stemW / 2;
+  const stemY = top;
+  const stemH = totalH;
+  // Bottom serif
+  const botX = cx - serifW / 2;
+  const botY = bottom - serifH;
+
+  return `
+    <rect x="${topX}"  y="${topY}"  width="${serifW}" height="${serifH}" fill="${color}"/>
+    <rect x="${stemX}" y="${stemY}" width="${stemW}"  height="${stemH}"  fill="${color}"/>
+    <rect x="${botX}"  y="${botY}"  width="${serifW}" height="${serifH}" fill="${color}"/>
+  `;
+}
+
+// Adaptive icon foreground — transparent bg, white "I" inside the inner 66%
+// safe zone (Android masks the outer ring with circle / squircle / cloverleaf).
 function svgIconForeground(size) {
-  const center = size / 2;
-  const fontSize = size * 0.55;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-    <text x="${center}" y="${center}"
-          font-family="system-ui, -apple-system, sans-serif"
-          font-size="${fontSize}" font-weight="800"
-          fill="${WHITE}"
-          text-anchor="middle"
-          dominant-baseline="central">I</text>
+    ${iMark(size, WHITE)}
   </svg>`;
 }
 
@@ -43,49 +72,24 @@ function svgBackground(size, color) {
   </svg>`;
 }
 
-// Universal icon — flat brand-coloured square with "I" baked in.
+// Universal icon — flat black square with the white "I" baked in. iOS will
+// mask the corners; the mark sits in the safe zone so it survives any clip.
 function svgUniversalIcon(size) {
-  const center = size / 2;
-  const fontSize = size * 0.55;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-    <defs>
-      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%"  stop-color="${BRAND}"/>
-        <stop offset="100%" stop-color="${BRAND_DEEP}"/>
-      </linearGradient>
-    </defs>
-    <rect width="${size}" height="${size}" fill="url(#g)"/>
-    <text x="${center}" y="${center}"
-          font-family="system-ui, -apple-system, sans-serif"
-          font-size="${fontSize}" font-weight="800"
-          fill="${WHITE}"
-          text-anchor="middle"
-          dominant-baseline="central">I</text>
+    <rect width="${size}" height="${size}" fill="${BLACK}"/>
+    ${iMark(size, WHITE)}
   </svg>`;
 }
 
-// Splash mark — single mark on white background; expo-splash-screen handles padding
+// Splash mark — rounded black square with the "I", sits on the white splash
+// backdrop configured in app.json under expo-splash-screen.
 function svgSplashMark(size) {
-  const center = size / 2;
-  const fontSize = size * 0.45;
-  // Rounded brand square with the I — sits on a white splash backdrop.
   const inset = size * 0.1;
   const rounded = size * 0.18;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-    <defs>
-      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%"  stop-color="${BRAND}"/>
-        <stop offset="100%" stop-color="${BRAND_DEEP}"/>
-      </linearGradient>
-    </defs>
     <rect x="${inset}" y="${inset}" width="${size - 2 * inset}" height="${size - 2 * inset}"
-          rx="${rounded}" ry="${rounded}" fill="url(#g)"/>
-    <text x="${center}" y="${center}"
-          font-family="system-ui, -apple-system, sans-serif"
-          font-size="${fontSize}" font-weight="800"
-          fill="${WHITE}"
-          text-anchor="middle"
-          dominant-baseline="central">I</text>
+          rx="${rounded}" ry="${rounded}" fill="${BLACK}"/>
+    ${iMark(size, WHITE, { heightFrac: 0.45 })}
   </svg>`;
 }
 
@@ -99,22 +103,22 @@ async function main() {
   // Universal app icon
   await svgToPng(svgUniversalIcon(1024), resolve(OUT, 'icon.png'));
 
-  // Adaptive icon foreground (transparent — overlay onto background)
+  // Adaptive icon foreground (transparent — overlays the black background)
   await svgToPng(svgIconForeground(1024), resolve(OUT, 'android-icon-foreground.png'));
 
-  // Adaptive icon background — solid brand
-  await svgToPng(svgBackground(1024, BRAND), resolve(OUT, 'android-icon-background.png'));
+  // Adaptive icon background — solid black
+  await svgToPng(svgBackground(1024, BLACK), resolve(OUT, 'android-icon-background.png'));
 
-  // Monochrome (Android 13 themed icons): same shape, white on transparent
+  // Monochrome (Android 13+ themed icons): white "I" on transparent
   await svgToPng(svgIconForeground(1024), resolve(OUT, 'android-icon-monochrome.png'));
 
-  // Splash mark
+  // Splash mark — rounded black square on white backdrop
   await svgToPng(svgSplashMark(512), resolve(OUT, 'splash-icon.png'));
 
-  // Favicon
+  // Favicon — small flat black with white "I"
   await svgToPng(svgUniversalIcon(48), resolve(OUT, 'favicon.png'));
 
-  console.log('\nDone. Run `npx eas build --profile development --platform android` to bake the new icons in.');
+  console.log('\nDone. Rebuild with `npx eas build` (or `npx expo prebuild --clean`) to bake the new icons in.');
 }
 
 main().catch((err) => {

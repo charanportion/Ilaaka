@@ -1,27 +1,28 @@
-import { ScrollView, View, Text } from 'react-native';
+import { ScrollView, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View className="mb-6">
-      <Text className="text-base font-semibold text-gray-900 mb-2">{title}</Text>
+      <Text variant="bodyStrong" tone="strong" style={{ marginBottom: 8 }}>{title}</Text>
       {children}
     </View>
   );
 }
 
-function P({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <Text className={`text-sm text-gray-700 leading-6 mb-2 ${className ?? ''}`}>{children}</Text>;
+function P({ children }: { children: React.ReactNode }) {
+  return <Text variant="caption" style={{ marginBottom: 8, lineHeight: 22 }}>{children}</Text>;
 }
 
 function Bullet({ children }: { children: React.ReactNode }) {
-  return <Text className="text-sm text-gray-700 leading-6 mb-1">• {children}</Text>;
+  return <Text variant="caption" style={{ marginBottom: 4, lineHeight: 22 }}>• {children}</Text>;
 }
 
 export default function TermsScreen() {
   return (
-    <ScrollView className="flex-1 bg-white" contentContainerStyle={{ padding: 24 }}>
-      <Text className="text-2xl font-bold text-gray-900 mb-2">Terms of Service</Text>
-      <Text className="text-xs text-gray-400 mb-6">Last updated: April 2026</Text>
+    <ScrollView className="flex-1 bg-bg" contentContainerStyle={{ padding: 24 }}>
+      <Text variant="h2" tone="strong" style={{ marginBottom: 8 }}>Terms of Service</Text>
+      <Text variant="tag" tone="subtle" style={{ marginBottom: 24 }}>Last updated: April 2026</Text>
 
       <Section title="Your account">
         <P>
@@ -33,16 +34,12 @@ export default function TermsScreen() {
       </Section>
 
       <Section title="Acceptable use">
-        <P>
-          You agree not to use Ilaaka to:
-        </P>
+        <P>You agree not to use Ilaaka to:</P>
         <Bullet>Submit falsified or simulated GPS data.</Bullet>
         <Bullet>Harass, threaten, or stalk other users.</Bullet>
         <Bullet>Reverse engineer, scrape, or place undue load on our servers.</Bullet>
         <Bullet>Violate any law or regulation in your jurisdiction.</Bullet>
-        <P className="mt-2">
-          We reserve the right to suspend or terminate accounts that violate these rules, including erasing their territories and activity history.
-        </P>
+        <P>We reserve the right to suspend or terminate accounts that violate these rules, including erasing their territories and activity history.</P>
       </Section>
 
       <Section title="Outdoor safety">

@@ -1,7 +1,11 @@
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import type { ActivityType, SubmitActivityResponse } from '@/types/api';
 import { estimateCalories } from '@/lib/calories';
 import { Tier2Prompts } from '@/components/activity/Tier2Prompts';
+import { Text } from '@/components/ui/Text';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { useTokens } from '@/lib/useTokens';
 
 export type SubmissionState = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -36,10 +40,20 @@ function formatPace(distanceM: number, durationS: number): string {
 }
 
 function StatBox({ label, value }: { label: string; value: string }) {
+  const { colors } = useTokens();
   return (
-    <View className="flex-1 items-center bg-gray-50 rounded-2xl p-4" style={{ minWidth: '40%' }}>
-      <Text className="text-2xl font-bold text-indigo-600">{value}</Text>
-      <Text className="text-xs text-gray-500 mt-1">{label}</Text>
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        backgroundColor: colors.surfaceAlt,
+        borderRadius: 16,
+        padding: 16,
+        minWidth: '40%',
+      }}
+    >
+      <Text variant="h3" style={{ color: colors.accent }}>{value}</Text>
+      <Text variant="tag" tone="muted" style={{ marginTop: 4 }}>{label}</Text>
     </View>
   );
 }
@@ -57,13 +71,16 @@ export function PostActivityCard({
   onDiscard,
   onDone,
 }: Props) {
+  const { colors } = useTokens();
   const calories = estimateCalories(type, durationS);
 
   return (
-    <View className="bg-white rounded-3xl mx-4 p-6 shadow-sm">
-      <Text className="text-2xl font-bold text-gray-900 mb-6 text-center">Activity Complete</Text>
+    <Card padding={24} radius="xxl" elevation="whisper" style={{ marginHorizontal: 16 }}>
+      <Text variant="h2" tone="strong" align="center" style={{ marginBottom: 24 }}>
+        Activity Complete
+      </Text>
 
-      <View className="flex-row flex-wrap gap-3 mb-8">
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 32 }}>
         <StatBox label="Distance"   value={`${(distanceM / 1000).toFixed(2)} km`} />
         <StatBox label="Duration"   value={formatDuration(durationS)} />
         <StatBox label="Pace"       value={`${formatPace(distanceM, durationS)} /km`} />
@@ -73,23 +90,30 @@ export function PostActivityCard({
 
       {submissionState === 'submitting' && (
         <View className="items-center gap-3 py-2">
-          <ActivityIndicator size="large" color="#6366F1" />
-          <Text className="text-gray-500 text-sm">Saving activity…</Text>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text variant="caption" tone="muted">Saving activity…</Text>
         </View>
       )}
 
       {submissionState === 'success' && submissionResult && (
-        <View className="gap-4">
-          <View className="bg-indigo-50 rounded-2xl p-4 items-center">
-            <Text className="text-indigo-700 font-bold text-lg">
+        <View style={{ gap: 16 }}>
+          <View
+            style={{
+              backgroundColor: colors.surfaceAlt,
+              borderRadius: 16, padding: 16,
+              borderWidth: 1, borderColor: colors.border,
+              alignItems: 'center',
+            }}
+          >
+            <Text variant="bodyStrong" style={{ color: colors.accent }}>
               {submissionResult.cells_captured > 0
                 ? `${submissionResult.cells_captured} hexes captured`
                 : 'Activity recorded — route too small for zones'}
             </Text>
             {submissionResult.cells_lost.length > 0 && (
-              <View className="mt-2 gap-1">
+              <View style={{ marginTop: 8, gap: 4 }}>
                 {submissionResult.cells_lost.map((d) => (
-                  <Text key={d.owner_id} className="text-indigo-500 text-xs text-center">
+                  <Text key={d.owner_id} variant="tag" tone="muted" align="center">
                     Took {d.count} {d.count === 1 ? 'hex' : 'hexes'} from another player
                   </Text>
                 ))}
@@ -97,58 +121,35 @@ export function PostActivityCard({
             )}
           </View>
           <Tier2Prompts />
-          <TouchableOpacity
-            onPress={onDone}
-            className="bg-indigo-500 rounded-2xl py-4 items-center"
-            activeOpacity={0.8}
-          >
-            <Text className="text-white font-semibold text-base">Done</Text>
-          </TouchableOpacity>
+          <Button label="Done" variant="primary" size="lg" fullWidth onPress={onDone} />
         </View>
       )}
 
       {submissionState === 'error' && (
-        <View className="gap-3">
-          <View className="bg-red-50 rounded-2xl p-4 items-center">
-            <Text className="text-red-700 text-sm text-center">
+        <View style={{ gap: 12 }}>
+          <View
+            style={{
+              backgroundColor: colors.surfaceAlt,
+              borderRadius: 16, padding: 16,
+              borderWidth: 1, borderColor: colors.danger,
+              alignItems: 'center',
+            }}
+          >
+            <Text variant="caption" tone="danger" align="center">
               {submissionError ?? 'Could not save activity. Please try again.'}
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={onRetry}
-            className="bg-indigo-500 rounded-2xl py-4 items-center"
-            activeOpacity={0.8}
-          >
-            <Text className="text-white font-semibold text-base">Retry</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onDiscard}
-            className="bg-gray-100 rounded-2xl py-4 items-center"
-            activeOpacity={0.8}
-          >
-            <Text className="text-gray-600 font-semibold text-base">Discard</Text>
-          </TouchableOpacity>
+          <Button label="Retry"   variant="primary"   size="lg" fullWidth onPress={onRetry} />
+          <Button label="Discard" variant="secondary" size="lg" fullWidth onPress={onDiscard} />
         </View>
       )}
 
       {submissionState === 'idle' && (
-        <View className="gap-3">
-          <TouchableOpacity
-            onPress={onSave}
-            className="bg-indigo-500 rounded-2xl py-4 items-center"
-            activeOpacity={0.8}
-          >
-            <Text className="text-white font-semibold text-base">Save Activity</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onDiscard}
-            className="bg-gray-100 rounded-2xl py-4 items-center"
-            activeOpacity={0.8}
-          >
-            <Text className="text-gray-600 font-semibold text-base">Discard</Text>
-          </TouchableOpacity>
+        <View style={{ gap: 12 }}>
+          <Button label="Save Activity" variant="primary"   size="lg" fullWidth onPress={onSave} />
+          <Button label="Discard"       variant="secondary" size="lg" fullWidth onPress={onDiscard} />
         </View>
       )}
-    </View>
+    </Card>
   );
 }

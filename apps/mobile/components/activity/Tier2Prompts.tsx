@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Share,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -10,6 +9,9 @@ import { Check, Share2 } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/auth-store';
 import { updateProfileTier2 } from '@/lib/users';
 import { capture } from '@/lib/analytics';
+import { Text } from '@/components/ui/Text';
+import { Button } from '@/components/ui/Button';
+import { useTokens } from '@/lib/useTokens';
 import type { FrequencyKind, MotivationKind } from '@/types/api';
 
 const MOTIVATIONS: { key: MotivationKind; label: string }[] = [
@@ -43,7 +45,6 @@ export function Tier2Prompts() {
 
   if (!user) return null;
 
-  // Hide entirely when nothing to ask anymore.
   const allHidden =
     motivationState !== 'visible' &&
     frequencyState !== 'visible' &&
@@ -101,14 +102,12 @@ export function Tier2Prompts() {
         url,
         message: `I'm on Ilaaka — claim zones around your neighborhood. Come play: ${url}`,
       });
-    } catch {
-      /* user dismissed */
-    }
+    } catch {/* dismissed */}
     setReferralUsed(true);
   }
 
   return (
-    <View className="mt-6 gap-4">
+    <View style={{ marginTop: 24, gap: 16 }}>
       {motivationState === 'visible' && (
         <PromptRow
           title="One quick thing — what's pulling you to Ilaaka?"
@@ -138,28 +137,7 @@ export function Tier2Prompts() {
         <DoneRow label={FREQUENCIES.find((f) => f.key === profile.target_frequency)?.label ?? ''} />
       )}
 
-      {!referralUsed && (
-        <View className="rounded-2xl border border-gray-100 p-4">
-          <Text className="text-sm text-gray-700 mb-3">
-            Ilaaka's better with a rival. Got someone in mind?
-          </Text>
-          <View className="flex-row gap-3">
-            <TouchableOpacity
-              onPress={inviteFriends}
-              className="flex-1 flex-row items-center justify-center bg-indigo-500 rounded-xl py-3"
-            >
-              <Share2 color="#fff" size={16} />
-              <Text className="ml-2 text-white font-semibold">Invite friends</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setReferralUsed(true)}
-              className="px-4 items-center justify-center"
-            >
-              <Text className="text-gray-500 font-medium text-sm">Maybe later</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+      {!referralUsed && <ReferralRow onInvite={inviteFriends} onSkip={() => setReferralUsed(true)} />}
     </View>
   );
 }
@@ -173,12 +151,18 @@ function PromptRow({
   onSkip: () => void;
   children: React.ReactNode;
 }) {
+  const { colors } = useTokens();
   return (
-    <View className="rounded-2xl border border-gray-100 p-4">
+    <View
+      style={{
+        borderRadius: 16, borderWidth: 1, borderColor: colors.border,
+        padding: 16, backgroundColor: colors.surface,
+      }}
+    >
       <View className="flex-row items-start justify-between mb-3">
-        <Text className="text-sm text-gray-700 flex-1 pr-3">{title}</Text>
+        <Text variant="caption" style={{ flex: 1, paddingRight: 12 }}>{title}</Text>
         <TouchableOpacity onPress={onSkip}>
-          <Text className="text-xs text-gray-400 font-medium">Skip</Text>
+          <Text variant="tag" tone="subtle">Skip</Text>
         </TouchableOpacity>
       </View>
       {children}
@@ -193,15 +177,21 @@ function ChipRow({
   options: { key: string; label: string }[];
   onPick: (key: string) => void;
 }) {
+  const { colors } = useTokens();
   return (
-    <View className="flex-row flex-wrap -m-1">
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', margin: -4 }}>
       {options.map(({ key, label }) => (
-        <View key={key} className="m-1">
+        <View key={key} style={{ margin: 4 }}>
           <TouchableOpacity
             onPress={() => onPick(key)}
-            className="px-3 py-2 rounded-full bg-indigo-50 border border-indigo-100"
+            style={{
+              paddingHorizontal: 12, paddingVertical: 8,
+              borderRadius: 9999,
+              backgroundColor: colors.surfaceAlt,
+              borderWidth: 1, borderColor: colors.border,
+            }}
           >
-            <Text className="text-indigo-700 text-sm font-medium">{label}</Text>
+            <Text variant="captionStrong">{label}</Text>
           </TouchableOpacity>
         </View>
       ))}
@@ -210,18 +200,61 @@ function ChipRow({
 }
 
 function RowSpinner() {
+  const { colors } = useTokens();
   return (
-    <View className="rounded-2xl border border-gray-100 p-4 items-center">
-      <ActivityIndicator size="small" color="#6366F1" />
+    <View
+      style={{
+        borderRadius: 16, borderWidth: 1, borderColor: colors.border,
+        padding: 16, alignItems: 'center', backgroundColor: colors.surface,
+      }}
+    >
+      <ActivityIndicator size="small" color={colors.accent} />
     </View>
   );
 }
 
 function DoneRow({ label }: { label: string }) {
+  const { colors } = useTokens();
   return (
-    <View className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 flex-row items-center">
-      <Check color="#059669" size={18} />
-      <Text className="ml-2 text-emerald-700 font-medium text-sm">{label}</Text>
+    <View
+      style={{
+        borderRadius: 16, padding: 16,
+        backgroundColor: colors.surface,
+        borderWidth: 1, borderColor: colors.success,
+        flexDirection: 'row', alignItems: 'center',
+      }}
+    >
+      <Check color={colors.success} size={18} />
+      <Text variant="captionStrong" tone="success" style={{ marginLeft: 8 }}>{label}</Text>
+    </View>
+  );
+}
+
+function ReferralRow({ onInvite, onSkip }: { onInvite: () => void; onSkip: () => void }) {
+  const { colors } = useTokens();
+  return (
+    <View
+      style={{
+        borderRadius: 16, borderWidth: 1, borderColor: colors.border,
+        padding: 16, backgroundColor: colors.surface,
+      }}
+    >
+      <Text variant="caption" style={{ marginBottom: 12 }}>
+        Ilaaka&apos;s better with a rival. Got someone in mind?
+      </Text>
+      <View style={{ flexDirection: 'row' }}>
+        <Button
+          label="Invite friends"
+          variant="primary"
+          size="md"
+          onPress={onInvite}
+          leftIcon={<Share2 color={colors.ctaFg} size={16} />}
+          style={{ flex: 1, marginRight: 12 }}
+        />
+        <TouchableOpacity onPress={onSkip} style={{ paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' }}>
+          <Text variant="captionStrong" tone="muted">Maybe later</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }

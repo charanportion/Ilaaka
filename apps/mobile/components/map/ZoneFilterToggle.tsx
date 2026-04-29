@@ -1,4 +1,7 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
+import { Text } from '@/components/ui/Text';
+import { useTokens } from '@/lib/useTokens';
+import { shadows } from '@/lib/design-tokens';
 import type { ZoneFilter } from '@/types/api';
 
 type Props = {
@@ -13,8 +16,19 @@ const SEGMENTS: { label: string; value: ZoneFilter }[] = [
 ];
 
 export function ZoneFilterToggle({ value, onChange }: Props) {
+  const { colors } = useTokens();
   return (
-    <View className="flex-row bg-white rounded-full shadow-sm overflow-hidden">
+    <View
+      style={{
+        flexDirection: 'row',
+        backgroundColor: colors.surface,
+        borderRadius: 9999,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: colors.border,
+        ...shadows.whisper,
+      }}
+    >
       {SEGMENTS.map((seg, i) => {
         const active = value === seg.value;
         return (
@@ -22,13 +36,17 @@ export function ZoneFilterToggle({ value, onChange }: Props) {
             key={seg.value}
             onPress={() => onChange(seg.value)}
             activeOpacity={0.8}
-            className={[
-              'px-4 py-2',
-              active ? 'bg-indigo-500' : 'bg-white',
-              i > 0 ? 'border-l border-gray-100' : '',
-            ].join(' ')}
+            style={{
+              paddingHorizontal: 16, paddingVertical: 8,
+              backgroundColor: active ? colors.ctaBg : colors.surface,
+              borderLeftWidth: i > 0 ? 1 : 0,
+              borderLeftColor: colors.border,
+            }}
           >
-            <Text className={`text-sm font-semibold ${active ? 'text-white' : 'text-gray-700'}`}>
+            <Text
+              variant="captionStrong"
+              style={{ color: active ? colors.ctaFg : colors.ink }}
+            >
               {seg.label}
             </Text>
           </TouchableOpacity>

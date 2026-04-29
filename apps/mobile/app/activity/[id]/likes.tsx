@@ -1,12 +1,14 @@
 import { useCallback, useState } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, ActivityIndicator, Pressable,
+  View, FlatList, TouchableOpacity, ActivityIndicator, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { ChevronLeft, Plus, Check } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
+import { Text } from '@/components/ui/Text';
+import { useTokens } from '@/lib/useTokens';
 import { listActivityLikers } from '@/lib/activities';
 import { followUser, unfollowUser } from '@/lib/friends';
 import { useAuthStore } from '@/stores/auth-store';
@@ -16,37 +18,43 @@ function LikerRow({
   liker, onToggleFollow, isMe,
 }: { liker: ActivityLiker; onToggleFollow: () => void; isMe: boolean }) {
   const router = useRouter();
+  const { colors } = useTokens();
   return (
-    <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
+    <View
+      className="flex-row items-center px-4 py-3"
+      style={{ backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}
+    >
       <Pressable
         onPress={() => router.push(`/user/${liker.user_id}` as any)}
         className="flex-row items-center flex-1"
       >
         <Avatar size={40} displayName={liker.display_name} color={liker.color} avatarUrl={liker.avatar_url} />
         <View className="ml-3 flex-1">
-          <Text className="text-gray-900 font-semibold text-sm">{liker.display_name}</Text>
-          <Text className="text-gray-400 text-xs">@{liker.username}</Text>
+          <Text variant="captionStrong">{liker.display_name}</Text>
+          <Text variant="tag" tone="subtle">@{liker.username}</Text>
         </View>
       </Pressable>
       {!isMe && (
         <TouchableOpacity
           onPress={onToggleFollow}
-          className={`flex-row items-center px-4 py-1.5 rounded-full border ${
-            liker.is_following
-              ? 'bg-white border-gray-200'
-              : 'bg-indigo-500 border-indigo-500'
-          }`}
+          style={{
+            flexDirection: 'row', alignItems: 'center',
+            paddingHorizontal: 16, paddingVertical: 6,
+            borderRadius: 9999, borderWidth: 1,
+            backgroundColor: liker.is_following ? colors.surface : colors.ctaBg,
+            borderColor:     liker.is_following ? colors.borderInput : colors.ctaBg,
+          }}
           activeOpacity={0.8}
         >
           {liker.is_following ? (
             <>
-              <Check size={14} color="#6366F1" />
-              <Text className="text-indigo-600 text-xs font-semibold ml-1">Following</Text>
+              <Check size={14} color={colors.ink} />
+              <Text variant="tag" tone="strong" style={{ marginLeft: 4 }}>Following</Text>
             </>
           ) : (
             <>
-              <Plus size={14} color="white" />
-              <Text className="text-white text-xs font-semibold ml-1">Follow</Text>
+              <Plus size={14} color={colors.ctaFg} />
+              <Text variant="tag" style={{ marginLeft: 4, color: colors.ctaFg }}>Follow</Text>
             </>
           )}
         </TouchableOpacity>
@@ -59,6 +67,7 @@ export default function ActivityLikesScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const myId = useAuthStore((s) => s.user?.id);
+  const { colors } = useTokens();
 
   const [likers, setLikers] = useState<ActivityLiker[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,21 +103,24 @@ export default function ActivityLikesScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+      <SafeAreaView className="flex-1 bg-bg items-center justify-center">
         <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator size="large" color="#6366F1" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-bg">
       <Stack.Screen options={{ headerShown: false }} />
-      <View className="flex-row items-center px-2 py-2 bg-white border-b border-gray-100">
+      <View
+        className="flex-row items-center px-2 py-2"
+        style={{ backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}
+      >
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="p-2">
-          <ChevronLeft size={24} color="#111827" />
+          <ChevronLeft size={24} color={colors.ink} />
         </TouchableOpacity>
-        <Text className="text-base font-semibold text-gray-900 ml-1">Likes</Text>
+        <Text variant="bodyStrong" style={{ marginLeft: 4 }}>Likes</Text>
       </View>
 
       <FlatList
@@ -125,9 +137,7 @@ export default function ActivityLikesScreen() {
         refreshing={refreshing}
         ListEmptyComponent={
           <View className="flex-1 items-center justify-center pt-24 px-8">
-            <Text className="text-gray-400 text-sm text-center">
-              No likes yet.
-            </Text>
+            <Text variant="caption" tone="subtle" align="center">No likes yet.</Text>
           </View>
         }
         contentContainerStyle={likers.length === 0 ? { flex: 1 } : undefined}

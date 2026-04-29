@@ -3,9 +3,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +12,10 @@ import { useAuthStore } from '@/stores/auth-store';
 import { isUsernameAvailable } from '@/lib/users';
 import { capture } from '@/lib/analytics';
 import { OnboardingProgressBar } from '@/components/onboarding/ProgressBar';
+import { Text } from '@/components/ui/Text';
+import { Button } from '@/components/ui/Button';
+import { useTokens } from '@/lib/useTokens';
+import { typography } from '@/lib/design-tokens';
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 const MAX_LEN = 24;
@@ -33,6 +35,7 @@ export default function UsernameScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
+  const { colors } = useTokens();
 
   const initial = useMemo(() => {
     const fromMeta = (user?.user_metadata?.full_name as string | undefined) ?? '';
@@ -82,7 +85,7 @@ export default function UsernameScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-bg">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
@@ -92,67 +95,65 @@ export default function UsernameScreen() {
         </View>
 
         <View className="flex-1 px-6 pt-10">
-          <Text className="text-3xl font-bold text-gray-900 mb-3">
+          <Text variant="h1" tone="strong" style={{ marginBottom: 12 }}>
             What should we call you?
           </Text>
-          <Text className="text-gray-500 mb-8">
+          <Text variant="bodyLg" tone="muted" style={{ marginBottom: 32 }}>
             This is your handle on the map. Pick something your friends will recognize.
           </Text>
 
           <TextInput
-            className="border border-gray-300 rounded-xl px-4 py-3 text-base"
             value={username}
             onChangeText={(t) => setUsername(sanitize(t))}
             placeholder="your_handle"
+            placeholderTextColor={colors.inkSubtle}
             autoCapitalize="none"
             autoCorrect={false}
             maxLength={MAX_LEN}
+            style={{
+              borderWidth: 1,
+              borderColor: colors.borderInput,
+              borderRadius: 8,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              fontFamily: typography.body.fontFamily,
+              fontSize: typography.body.fontSize,
+              color: colors.ink,
+              backgroundColor: colors.surface,
+            }}
           />
 
           <View className="mt-3 h-5 flex-row items-center">
             {check === 'checking' && (
               <>
-                <ActivityIndicator size="small" color="#6B7280" />
-                <Text className="ml-2 text-xs text-gray-500">Checking…</Text>
+                <ActivityIndicator size="small" color={colors.inkMuted} />
+                <Text variant="tag" tone="muted" style={{ marginLeft: 8 }}>Checking…</Text>
               </>
             )}
             {check === 'available' && (
-              <Text className="text-xs text-emerald-600 font-medium">
-                {username} is available
-              </Text>
+              <Text variant="tag" tone="success">{username} is available</Text>
             )}
             {check === 'taken' && (
-              <Text className="text-xs text-rose-600 font-medium">
-                That handle is taken
-              </Text>
+              <Text variant="tag" tone="danger">That handle is taken</Text>
             )}
             {check === 'invalid' && username.length > 0 && (
-              <Text className="text-xs text-gray-500">
-                3–24 characters: letters, numbers, underscores
-              </Text>
+              <Text variant="tag" tone="muted">3–24 characters: letters, numbers, underscores</Text>
             )}
             {check === 'error' && (
-              <Text className="text-xs text-rose-600">Couldn't check — try again</Text>
+              <Text variant="tag" tone="danger">Couldn&apos;t check — try again</Text>
             )}
           </View>
         </View>
 
         <View className="px-6 pb-8">
-          <TouchableOpacity
-            className={`rounded-xl py-4 items-center ${
-              canContinue ? 'bg-indigo-500' : 'bg-gray-200'
-            }`}
-            onPress={handleContinue}
+          <Button
+            label="Continue"
+            variant="primary"
+            size="lg"
+            fullWidth
             disabled={!canContinue}
-          >
-            <Text
-              className={`font-semibold text-base ${
-                canContinue ? 'text-white' : 'text-gray-400'
-              }`}
-            >
-              Continue
-            </Text>
-          </TouchableOpacity>
+            onPress={handleContinue}
+          />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

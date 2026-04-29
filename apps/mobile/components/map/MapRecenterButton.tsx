@@ -1,5 +1,7 @@
 import { TouchableOpacity, View, type ViewStyle } from 'react-native';
 import { Locate, Navigation } from 'lucide-react-native';
+import { useTokens } from '@/lib/useTokens';
+import { shadows } from '@/lib/design-tokens';
 
 type Props = {
   mode: 'recenter' | 'compass';
@@ -9,6 +11,10 @@ type Props = {
 };
 
 export function MapRecenterButton({ mode, bearing, onPress, style }: Props) {
+  const { colors } = useTokens();
+  const recenterIcon = colors.ink;
+  const compassIcon  = colors.accent;
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -21,23 +27,21 @@ export function MapRecenterButton({ mode, bearing, onPress, style }: Props) {
           width: 44,
           height: 44,
           borderRadius: 22,
-          backgroundColor: '#FFFFFF',
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
           alignItems: 'center',
           justifyContent: 'center',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.18,
-          shadowRadius: 4,
-          elevation: 4,
+          ...shadows.whisper,
         },
         style,
       ]}
     >
       {mode === 'recenter' ? (
-        <Locate size={22} color="#374151" strokeWidth={2.25} />
+        <Locate size={22} color={recenterIcon} strokeWidth={2.25} />
       ) : (
         <View style={{ transform: [{ rotate: `${-bearing}deg` }] }}>
-          <Navigation size={22} color="#6366F1" strokeWidth={2.25} fill="#6366F1" />
+          <Navigation size={22} color={compassIcon} strokeWidth={2.25} fill={compassIcon} />
         </View>
       )}
     </TouchableOpacity>

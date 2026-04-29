@@ -33,6 +33,9 @@ export type SubmitActivityRequest = {
   type: ActivityType;
   started_at: string;
   ended_at: string;
+  // Client-generated UUID per pending activity in SQLite. Replays of the same
+  // key on retry return the original activity_id instead of double-claiming.
+  idempotency_key?: string;
   trace: {
     type: 'LineString';
     coordinates: [number, number][];
@@ -42,12 +45,46 @@ export type SubmitActivityRequest = {
     accuracy_m: number[];
   };
   client_calories?: number;
+  elevation_gain_m?: number;
 } & ActivityMetadata;
+
+export type WeekMetrics = {
+  distance_m: number;
+  duration_s: number;
+  elevation_gain_m: number;
+  activity_count: number;
+};
+
+export type WeeklyBucket = {
+  week_start: string;
+  distance_m: number;
+  area_m2: number;
+  activity_count: number;
+};
+
+export type StreakStats = {
+  current_streak: number;
+  max_streak: number;
+  last_activity_date: string | null;
+};
+
+export type ActivityDay = {
+  day: string;
+  activity_count: number;
+  distance_m: number;
+};
+
+export type UserGoals = {
+  weekly_distance_m: number;
+  weekly_area_m2: number;
+};
 
 export type SubmitActivityResponse = {
   activity_id: string;
   cells_captured: number;
   cells_lost: { owner_id: string; count: number }[];
+  // True when the server short-circuited via idempotency_key replay.
+  replayed?: boolean;
 };
 
 export type ZoneInBbox = {
