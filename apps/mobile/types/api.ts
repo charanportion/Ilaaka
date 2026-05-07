@@ -6,6 +6,8 @@ export type MotivationKind = 'consistency' | 'habit' | 'compete' | 'explore' | '
 export type FrequencyKind = 'daily' | 'multiple_per_week' | 'weekends' | 'flexible';
 export type TimeSlotKind = 'morning' | 'afternoon' | 'evening' | 'late_night' | 'varies';
 
+export type RegionStatus = 'allowed' | 'blocked';
+
 export type OwnProfile = {
   id: string;
   username: string;
@@ -18,6 +20,7 @@ export type OwnProfile = {
   target_frequency: FrequencyKind | null;
   usual_time_slot: TimeSlotKind | null;
   onboarding_completed_at: string | null;
+  region_status: RegionStatus | null;
 };
 
 export type ActivityMetadata = {

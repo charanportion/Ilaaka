@@ -32,7 +32,7 @@ create type frequency_kind  as enum ('daily', 'multiple_per_week', 'weekends', '
 create type time_slot_kind  as enum ('morning', 'afternoon', 'evening', 'late_night', 'varies');
 
 alter table public.profiles
-  add column usual_locality text,                                    -- Q2 free-form locality name (e.g., "Koramangala 5th Block")
+  add column usual_locality text,                                    -- Q2 free-form locality name (e.g., "Jubilee Hills, Road No. 36")
   add column primary_activity activity_type,                         -- Q3 reuse existing enum
   add column motivation motivation_kind,                             -- Q4
   add column target_frequency frequency_kind,                        -- Q5
@@ -70,7 +70,7 @@ create index profiles_locality_idx   on public.profiles(usual_locality) where us
 | **Field** | Single-select with 4 tiles + a "Detect my locality" button |
 | **Options** | Around my home / Near my office / At a park / Mixed |
 | **Detect button** | Uses current GPS + reverse geocoding to suggest a locality name |
-| **Stored as** | `profiles.usual_locality` (text, the resolved locality name; not the option key — we want "Koramangala 5th Block", not "around_home") |
+| **Stored as** | `profiles.usual_locality` (text, the resolved locality name; not the option key — we want "Jubilee Hills, Road No. 36", not "around_home") |
 | **Microcopy — header** | Where do you usually walk? |
 | **Microcopy — subtext** | We'll use this to set up your map. We never share your home address. |
 | **CTA** | Continue |
@@ -285,7 +285,7 @@ Hard rule encoded in the notification scheduler: never send `daily_prompt` event
 
 ### `usual_locality` drives map setup and decoy seeding
 
-- Initial map camera centers on the locality centroid (precomputed in a `localities` lookup table; for v0.5 hardcode 5–10 Bengaluru localities)
+- Initial map camera centers on the locality centroid (precomputed in a `localities` lookup table; for v0.5 hardcode 5–10 Hyderabad localities)
 - Decoy zones for the first 7 days are seeded around this centroid, not generic city center
 - Share card location label uses this string
 

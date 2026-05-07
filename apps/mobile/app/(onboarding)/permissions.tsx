@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Linking,
   TouchableOpacity,
@@ -14,6 +14,9 @@ import { OnboardingProgressBar } from '@/components/onboarding/ProgressBar';
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 import { useTokens } from '@/lib/useTokens';
+import { decideRegion } from '@/lib/geo-gate';
+import { setRegionStatus } from '@/lib/users';
+import { useAuthStore } from '@/stores/auth-store';
 
 type Step = 'foreground' | 'background' | 'notifications';
 type Outcome = 'idle' | 'pending' | 'granted' | 'denied';
@@ -57,6 +60,42 @@ export default function PermissionsScreen() {
   const { colors } = useTokens();
   const [step, setStep] = useState<Step>('foreground');
   const [outcome, setOutcome] = useState<Outcome>('idle');
+  const userId = useAuthStore((s) => s.user?.id);
+  const profile = useAuthStore((s) => s.profile);
+  const setProfile = useAuthStore((s) => s.setProfile);
+  /* Detected GPS coords from the foreground-permission grant. Held only
+     long enough to feed into the region gate at the end of onboarding —
+     not persisted, no PII. */
+  const detectedCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  async function finish() {
+    /* Region gate. Run once at the end of onboarding; result lands on the
+       profile so the auth gate routes future launches correctly. */
+    if (!userId) {
+      router.replace('/(app)/map');
+      return;
+    }
+    const decision = decideRegion({
+      coords: detectedCoordsRef.current,
+      locality: profile?.usual_locality ?? null,
+    });
+    capture('region_gate_decided', {
+      status: decision.status,
+      reason: decision.reason,
+    });
+    try {
+      const updated = await setRegionStatus(userId, decision.status);
+      setProfile(updated);
+    } catch {
+      /* Don't block onboarding if the write fails — _layout.tsx will
+         re-route on the next launch when the column is present. */
+    }
+    if (decision.status === 'blocked') {
+      router.replace('/blocked');
+    } else {
+      router.replace('/(app)/map');
+    }
+  }
 
   function next() {
     if (step === 'foreground') {
@@ -66,7 +105,7 @@ export default function PermissionsScreen() {
       setStep('notifications');
       setOutcome('idle');
     } else {
-      router.replace('/(app)/map');
+      finish();
     }
   }
 
@@ -78,6 +117,21 @@ export default function PermissionsScreen() {
       if (step === 'foreground') {
         const res = await Location.requestForegroundPermissionsAsync();
         granted = res.status === 'granted';
+        if (granted) {
+          /* Capture a single coarse fix for the region gate. We never
+             log raw lat/lng (privacy hard rule); it stays in memory. */
+          try {
+            const pos = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+            detectedCoordsRef.current = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            };
+          } catch {
+            /* GPS fix failed — region gate falls back to locality text. */
+          }
+        }
       } else if (step === 'background') {
         const res = await Location.requestBackgroundPermissionsAsync();
         granted = res.status === 'granted';

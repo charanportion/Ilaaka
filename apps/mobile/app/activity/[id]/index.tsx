@@ -241,7 +241,7 @@ export default function ActivityDetailScreen() {
           {/* Header */}
           <View className="px-4 pt-4 pb-2 flex-row items-center" style={{ backgroundColor: colors.surface }}>
             <Pressable onPress={() => router.push(`/user/${detail.user_id}` as any)}>
-              <Avatar size={48} displayName={detail.display_name} color={detail.color} avatarUrl={detail.avatar_url} />
+              <Avatar size={48} displayName={detail.display_name} color={detail.color} avatarUrl={detail.avatar_url} intent="territory" />
             </Pressable>
             <View className="flex-1 ml-3">
               <View className="flex-row items-center">

@@ -1,0 +1,455 @@
+@import "tailwindcss";
+
+/* ----------------------------------------------------------------------
+   Ilaaka — "Streetlight Cartography"
+   Brand chrome is monochrome; territory palette stays vivid.
+   The site supports light + dark themes via `.theme-light` on <html>.
+   Default = dark (the night-map "streetlight" look).
+   --------------------------------------------------------------------- */
+
+@theme {
+  /* Base inks — used as palette swatches; semantic tokens reference these */
+  --color-ink-950: #08070a;
+  --color-ink-900: #0e0c10;
+  --color-ink-800: #15131a;
+  --color-ink-700: #1d1a23;
+  --color-ink-600: #2a2632;
+  --color-ink-500: #3a3544;
+  --color-ink-400: #6f6678;
+  --color-ink-300: #a39aa8;
+  --color-ink-200: #d6cfd8;
+  --color-ink-100: #ebe3cf;
+
+  /* Brand foreground — warm cream paper */
+  --color-paper-50: #f8f1e3;
+  --color-paper-100: #ede4d3;
+  --color-paper-200: #d9cdb6;
+
+  /* ------------------------------------------------------------------
+     Territory palette — only for territory representations (HexMap
+     cells, share-card territory blocks, in-app route lines, etc.).
+     Do not use for chrome.
+     ------------------------------------------------------------------ */
+  --color-saffron-50: #fff3e6;
+  --color-saffron-100: #ffd9ad;
+  --color-saffron-300: #ffaa55;
+  --color-saffron-500: #ff7a1a;
+  --color-saffron-600: #f56114;
+  --color-saffron-700: #c44a0d;
+
+  --color-lime-200: #e7ff8a;
+  --color-lime-400: #c7f340;
+  --color-lime-500: #b6e535;
+  --color-lime-600: #8fc41a;
+
+  --color-magenta-300: #ff7ab8;
+  --color-magenta-500: #ff2d87;
+  --color-magenta-600: #e01773;
+
+  --color-teal-400: #2bd9b8;
+  --color-teal-600: #0f9c83;
+
+  /* ------------------------------------------------------------------
+     Semantic chrome tokens — these are the ones to use in components.
+     They flip between light and dark themes via the :root[.theme-light]
+     override below.
+     ------------------------------------------------------------------ */
+  --color-canvas: #08070a;            /* page bg */
+  --color-canvas-2: #0e0c10;          /* alternating section bg */
+  --color-surface: #15131a;           /* cards / elevated */
+  --color-surface-2: #1d1a23;         /* inputs, deeper cards */
+  --color-fg: #f8f1e3;                /* main text */
+  --color-fg-muted: #ede4d3;          /* secondary text */
+  --color-fg-subtle: rgba(248, 241, 227, 0.55); /* placeholder, dim labels */
+  --color-rule: rgba(248, 241, 227, 0.10);      /* dividers, soft borders */
+  --color-rule-strong: rgba(248, 241, 227, 0.20); /* visible borders */
+  --color-cta-bg: #f8f1e3;            /* primary button bg */
+  --color-cta-fg: #08070a;            /* primary button fg */
+  --color-cta-bg-hover: #ffffff;      /* primary button hover */
+  --color-grain: rgba(248, 241, 227, 0.04); /* atmospheric tints */
+
+  /* Fonts (next/font assigns the CSS variables) */
+  --font-display: var(--font-fraunces), "Iowan Old Style", "Hoefler Text", Georgia, serif;
+  --font-body: var(--font-manrope), -apple-system, "Segoe UI", "Noto Sans Devanagari", sans-serif;
+  --font-mono: var(--font-mono), "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Type scale (mobile-first; desktop scales via fluid clamps) */
+  --text-display-1: clamp(3.25rem, 9vw + 1rem, 7.5rem);
+  --text-display-2: clamp(2.25rem, 5vw + 1rem, 4.5rem);
+  --text-display-3: clamp(1.75rem, 3vw + 1rem, 2.75rem);
+  --text-eyebrow: 0.72rem;
+
+  /* Radii */
+  --radius-pill: 999px;
+  --radius-card: 28px;
+}
+
+/* ---------- LIGHT THEME OVERRIDE ----------
+   `<html class="theme-light">` flips the semantic tokens to a paper-on-ink
+   palette. Literal ink-/paper-/territory-colour tokens stay constant. */
+:root.theme-light {
+  --color-canvas: #f8f1e3;
+  --color-canvas-2: #ede4d3;
+  --color-surface: #ffffff;
+  --color-surface-2: #f3ecda;
+  --color-fg: #0d0d0c;
+  --color-fg-muted: #1d1a23;
+  --color-fg-subtle: rgba(13, 13, 12, 0.55);
+  --color-rule: rgba(13, 13, 12, 0.10);
+  --color-rule-strong: rgba(13, 13, 12, 0.20);
+  --color-cta-bg: #0d0d0c;
+  --color-cta-fg: #f8f1e3;
+  --color-cta-bg-hover: #2a2632;
+  --color-grain: rgba(13, 13, 12, 0.05);
+}
+
+/* --------------------------- base reset ------------------------------ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    /* Avoid jarring transitions when toggling themes */
+    color-scheme: dark;
+  }
+  :root.theme-light html,
+  html:has(:root.theme-light) {
+    color-scheme: light;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-body);
+    font-feature-settings: "ss01", "cv11";
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+    transition: background-color 240ms ease, color 240ms ease;
+  }
+
+  ::selection {
+    background: var(--color-fg);
+    color: var(--color-canvas);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    line-height: 0.94;
+    letter-spacing: -0.025em;
+    margin: 0;
+  }
+
+  h1 {
+    font-variation-settings: "SOFT" 30, "WONK" 1, "opsz" 144;
+  }
+
+  p { margin: 0; }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+/* --------------------------- background atmosphere ------------------ */
+.bg-grain {
+  position: relative;
+}
+.bg-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+/* The hero canvas follows the theme — paper-cream in light mode,
+   warm-black in dark. The atmospheric radial tints use the foreground
+   colour at low opacity so they read as soft glows in either theme. */
+.bg-hex-grid {
+  background-color: var(--color-canvas);
+  background-image:
+    radial-gradient(
+      ellipse 60% 80% at 50% -10%,
+      color-mix(in oklab, var(--color-fg) 7%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 55% 50% at 110% 60%,
+      color-mix(in oklab, var(--color-fg) 5%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 50% at -10% 80%,
+      color-mix(in oklab, var(--color-fg) 4%, transparent),
+      transparent 70%
+    );
+  transition: background-color 240ms ease;
+}
+
+.dot-grid {
+  background-image: radial-gradient(
+    var(--color-fg-subtle) 1px,
+    transparent 1.2px
+  );
+  background-size: 18px 18px;
+}
+
+/* hex-cell tile — defaults to current foreground (cream in dark, ink in light) */
+.hex-tile {
+  --hex-color: var(--color-fg);
+  background-color: var(--hex-color);
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 52'><polygon points='30,1 58,16 58,38 30,52 2,38 2,16' fill='black'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 52'><polygon points='30,1 58,16 58,38 30,52 2,38 2,16' fill='black'/></svg>");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* ----------------------------- type utilities ----------------------- */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-eyebrow);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-fg-subtle);
+}
+
+.display-1 {
+  font-family: var(--font-display);
+  font-size: var(--text-display-1);
+  font-weight: 700;
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+}
+
+.display-2 {
+  font-family: var(--font-display);
+  font-size: var(--text-display-2);
+  font-weight: 700;
+  line-height: 0.96;
+  letter-spacing: -0.025em;
+}
+
+.display-3 {
+  font-family: var(--font-display);
+  font-size: var(--text-display-3);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.text-balance { text-wrap: balance; }
+.text-pretty { text-wrap: pretty; }
+
+/* italic+wonk variant — the "Apni Fitness." moment */
+.wonk {
+  font-style: italic;
+  font-variation-settings: "SOFT" 100, "WONK" 1, "opsz" 144;
+}
+
+/* "Sticker" / paper-tape highlight that fully covers the text. Background
+   is the CTA pair so it always sits in high contrast against the canvas
+   — cream on dark in dark mode, near-black on cream in light mode. */
+.scribble {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+}
+.scribble::after {
+  content: "";
+  position: absolute;
+  left: -3.5%;
+  right: -3.5%;
+  top: 0.04em;
+  bottom: 0.04em;
+  background: var(--color-cta-bg);
+  z-index: -1;
+  transform: skewX(-3deg);
+  border-radius: 6px 12px 4px 10px;
+  box-shadow:
+    0 8px 30px -8px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  transition: background-color 240ms ease;
+}
+/* Text inside the scribble needs to sit on the cta-bg colour */
+.scribble > .scribble-text {
+  color: var(--color-cta-fg);
+}
+
+/* ----------------------------- buttons ------------------------------ */
+.btn-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  padding: 1.05rem 1.65rem;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: -0.005em;
+  border: 1px solid transparent;
+  transition:
+    transform 120ms cubic-bezier(0.2, 0.7, 0.3, 1),
+    background-color 200ms ease,
+    box-shadow 220ms ease,
+    color 200ms ease;
+  will-change: transform;
+}
+
+.btn-primary {
+  background: var(--color-cta-bg);
+  color: var(--color-cta-fg);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-cta-bg) 92%, white) inset,
+    0 22px 42px -18px rgba(0, 0, 0, 0.6),
+    0 0 0 6px color-mix(in oklab, var(--color-cta-bg) 14%, transparent);
+}
+
+.btn-primary:hover {
+  background: var(--color-cta-bg-hover);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-fg);
+  border-color: var(--color-rule-strong);
+}
+
+.btn-ghost:hover {
+  background: color-mix(in oklab, var(--color-fg) 8%, transparent);
+}
+
+/* ----------------------------- card surfaces ------------------------ */
+.card-surface {
+  background: linear-gradient(
+    160deg,
+    color-mix(in oklab, var(--color-surface) 88%, transparent),
+    color-mix(in oklab, var(--color-canvas-2) 96%, transparent)
+  );
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  position: relative;
+  overflow: hidden;
+  transition: background-color 240ms ease, border-color 240ms ease;
+}
+
+.card-surface::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    140deg,
+    color-mix(in oklab, var(--color-fg) 28%, transparent),
+    transparent 40%,
+    color-mix(in oklab, var(--color-fg) 12%, transparent) 80%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* -------------------------- pulse / glow ---------------------------- */
+@keyframes pulse-ring {
+  0% { transform: scale(0.6); opacity: 0.85; }
+  80% { transform: scale(2); opacity: 0; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+@keyframes hex-pop {
+  0% { opacity: 0; transform: scale(0.7); }
+  60% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes drift {
+  from { transform: translateY(0) translateX(0); }
+  to { transform: translateY(-4px) translateX(2px); }
+}
+
+@keyframes sweep {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(110%); }
+}
+
+@keyframes tick-up {
+  0% { transform: translateY(8px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.animate-tick-up {
+  animation: tick-up 700ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+/* ----------------------------- divider rules ----------------------- */
+.rule-dashed {
+  height: 1px;
+  background-image: linear-gradient(
+    90deg,
+    var(--color-rule-strong) 50%,
+    transparent 50%
+  );
+  background-size: 14px 1px;
+}
+
+/* ---------------------------- focus ring ---------------------------- */
+:focus-visible {
+  outline: 2px dashed var(--color-fg);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* --------------------- accessible motion preference ----------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

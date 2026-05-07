@@ -13,6 +13,7 @@ import { ActivityTypePicker } from '@/components/activity/ActivityTypePicker';
 import { RecorderControls } from '@/components/activity/RecorderControls';
 import { PostActivityCard } from '@/components/activity/PostActivityCard';
 import { SaveActivitySheet } from '@/components/activity/SaveActivitySheet';
+import { CaptureCelebration } from '@/components/celebration/CaptureCelebration';
 import { RecorderMap } from '@/components/recorder/RecorderMap';
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
@@ -24,11 +25,15 @@ import type { ActivityMetadata, ActivityType, SubmitActivityResponse } from '@/t
 
 type Screen = 'idle' | 'recording' | 'metadata' | 'summary';
 
-// HUD overlay during recording is always dark (dashboard aesthetic), regardless of theme.
-const HUD_BG = 'rgba(23,23,23,0.95)';
-const HUD_FG = '#FFFFFF';
-const HUD_FG_MUTED = 'rgba(255,255,255,0.6)';
-const PAUSE_AMBER = '#F5B945';
+/* HUD overlay during recording is always dark (dashboard aesthetic),
+   regardless of theme. Anchored to the new ink palette so it stays in
+   sync with the rest of the system. PR 2 retypesets the HUD with
+   Fraunces stat numerics + JetBrains Mono eyebrow labels — the
+   structure here stays the same for now. */
+const HUD_BG = 'rgba(22,22,20,0.96)';   // darkPalette.surface @ 96% alpha
+const HUD_FG = '#f8f1e3';               // paper-cream
+const HUD_FG_MUTED = 'rgba(248,241,227,0.6)';
+const PAUSE_AMBER = '#d8923a';          // darkPalette.warning
 
 function formatDuration(s: number): string {
   const h = Math.floor(s / 3600);
@@ -204,6 +209,20 @@ export default function RecordScreen() {
   }
 
   if (screen === 'summary') {
+    /* Successful submissions get the full-screen celebration treatment.
+       Failed / pending / idle states fall back to PostActivityCard so
+       the user can retry, discard, or wait. */
+    if (submissionState === 'success' && submissionResult) {
+      return (
+        <SafeAreaView edges={['top']} className="flex-1 bg-bg">
+          <CaptureCelebration
+            result={submissionResult}
+            distanceM={distanceM}
+            onDone={handleDone}
+          />
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView edges={['top']} className="flex-1 bg-bg justify-center">
         <PostActivityCard
@@ -243,31 +262,36 @@ export default function RecordScreen() {
 
     if (expanded) {
       return (
-        <View style={{ flex: 1, backgroundColor: '#0e0f12' }}>
+        <View style={{ flex: 1, backgroundColor: '#0d0d0c' }}>
           <SafeAreaView edges={['top']}>
             <View
               style={{
-                paddingHorizontal: 20, paddingVertical: 16,
-                backgroundColor: isPaused ? PAUSE_AMBER : '#0e0f12',
+                paddingHorizontal: 20,
+                paddingVertical: 16,
+                backgroundColor: isPaused ? PAUSE_AMBER : '#0d0d0c',
               }}
             >
               <View className="flex-row items-center justify-between">
-                <View className="flex-1">
-                  {isPaused && (
-                    <Text variant="captionStrong" align="center" style={{ color: '#0e0f12', marginBottom: 4 }}>
-                      Paused
+                <View className="flex-1 items-center">
+                  <View style={{ marginBottom: 6 }}>
+                    <Text
+                      variant="eyebrow"
+                      align="center"
+                      style={{ color: isPaused ? '#0d0d0c' : HUD_FG_MUTED }}
+                    >
+                      {isPaused ? 'Paused' : 'Time'}
                     </Text>
-                  )}
+                  </View>
                   <Text
                     variant="h1"
                     align="center"
-                    style={{ color: isPaused ? '#0e0f12' : HUD_FG, fontVariant: ['tabular-nums'] }}
+                    style={{ color: isPaused ? '#0d0d0c' : HUD_FG, fontVariant: ['tabular-nums'] }}
                   >
                     {formatDuration(liveDurationS)}
                   </Text>
                 </View>
                 <TouchableOpacity onPress={() => setExpanded(false)} hitSlop={12} style={{ position: 'absolute', right: 0, top: 8 }}>
-                  <Minimize2 size={20} color={isPaused ? '#0e0f12' : HUD_FG} />
+                  <Minimize2 size={20} color={isPaused ? '#0d0d0c' : HUD_FG} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -278,13 +302,17 @@ export default function RecordScreen() {
               <Text variant="display" style={{ color: HUD_FG, fontVariant: ['tabular-nums'] }}>
                 {(distanceM / 1000).toFixed(2)}
               </Text>
-              <Text variant="bodyLg" style={{ color: HUD_FG_MUTED, marginTop: 8 }}>Distance (km)</Text>
+              <Text variant="eyebrow" style={{ color: HUD_FG_MUTED, marginTop: 12 }}>
+                Distance · km
+              </Text>
             </View>
             <View className="items-center">
               <Text variant="h1" style={{ color: HUD_FG, fontVariant: ['tabular-nums'] }}>
                 {paceLabel}
               </Text>
-              <Text variant="bodyLg" style={{ color: HUD_FG_MUTED, marginTop: 8 }}>min/km pace</Text>
+              <Text variant="eyebrow" style={{ color: HUD_FG_MUTED, marginTop: 10 }}>
+                Pace · min/km
+              </Text>
             </View>
           </View>
 
@@ -325,7 +353,7 @@ export default function RecordScreen() {
                 paddingVertical: 8,
               }}
             >
-              <Text variant="captionStrong" align="center" style={{ color: '#0e0f12' }}>Paused</Text>
+              <Text variant="captionStrong" align="center" style={{ color: '#0d0d0c' }}>Paused</Text>
             </View>
           )}
 
@@ -335,16 +363,19 @@ export default function RecordScreen() {
               marginBottom: 12,
               backgroundColor: HUD_BG,
               paddingHorizontal: 20,
-              paddingVertical: 16,
-              borderTopLeftRadius:    isPaused ? 0 : 16,
-              borderTopRightRadius:   isPaused ? 0 : 16,
-              borderBottomLeftRadius: 16,
-              borderBottomRightRadius: 16,
+              paddingTop: 14,
+              paddingBottom: 18,
+              borderTopLeftRadius:    isPaused ? 0 : 20,
+              borderTopRightRadius:   isPaused ? 0 : 20,
+              borderBottomLeftRadius: 20,
+              borderBottomRightRadius: 20,
+              borderWidth: 1,
+              borderColor: 'rgba(248,241,227,0.08)',
             }}
           >
-            <View className="flex-row items-center mb-2">
-              <Text variant="captionStrong" align="center" style={{ flex: 1, color: HUD_FG_MUTED }}>
-                {type[0].toUpperCase() + type.slice(1)}
+            <View className="flex-row items-center mb-3">
+              <Text variant="eyebrow" align="center" style={{ flex: 1, color: HUD_FG_MUTED }}>
+                {type[0].toUpperCase() + type.slice(1)} · live
               </Text>
               <TouchableOpacity onPress={() => setExpanded(true)} hitSlop={10} style={{ position: 'absolute', right: 0 }}>
                 <Maximize2 size={16} color={HUD_FG} />
@@ -352,22 +383,22 @@ export default function RecordScreen() {
             </View>
             <View className="flex-row">
               <View className="flex-1 items-center">
-                <Text variant="h3" style={{ color: HUD_FG, fontSize: 24, fontVariant: ['tabular-nums'] }}>
+                <Text variant="h2" style={{ color: HUD_FG, fontSize: 28, lineHeight: 30, fontVariant: ['tabular-nums'] }}>
                   {formatDuration(liveDurationS)}
                 </Text>
-                <Text variant="tag" style={{ color: HUD_FG_MUTED, marginTop: 4 }}>Time</Text>
+                <Text variant="eyebrow" style={{ color: HUD_FG_MUTED, marginTop: 6 }}>Time</Text>
               </View>
               <View className="flex-1 items-center">
-                <Text variant="h2" style={{ color: HUD_FG, fontSize: 30, fontVariant: ['tabular-nums'] }}>
+                <Text variant="h2" style={{ color: HUD_FG, fontSize: 32, lineHeight: 34, fontVariant: ['tabular-nums'] }}>
                   {(distanceM / 1000).toFixed(2)}
                 </Text>
-                <Text variant="tag" style={{ color: HUD_FG_MUTED, marginTop: 4 }}>Distance (km)</Text>
+                <Text variant="eyebrow" style={{ color: HUD_FG_MUTED, marginTop: 6 }}>km</Text>
               </View>
               <View className="flex-1 items-center">
-                <Text variant="h3" style={{ color: HUD_FG, fontSize: 24, fontVariant: ['tabular-nums'] }}>
+                <Text variant="h2" style={{ color: HUD_FG, fontSize: 28, lineHeight: 30, fontVariant: ['tabular-nums'] }}>
                   {paceLabel}
                 </Text>
-                <Text variant="tag" style={{ color: HUD_FG_MUTED, marginTop: 4 }}>min/km</Text>
+                <Text variant="eyebrow" style={{ color: HUD_FG_MUTED, marginTop: 6 }}>min/km</Text>
               </View>
             </View>
           </View>

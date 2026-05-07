@@ -45,12 +45,22 @@ module.exports = {
         pill: '9999px',
       },
       fontFamily: {
-        sans:    ['Inter_400Regular', 'system-ui'],
-        medium:  ['Inter_500Medium', 'system-ui'],
-        semi:    ['Inter_600SemiBold', 'system-ui'],
-        bold:    ['Inter_700Bold', 'system-ui'],
-        black:   ['Inter_900Black', 'system-ui'],
-        mono:    ['JetBrainsMono_400Regular', 'ui-monospace'],
+        // Body: Manrope
+        sans:    ['Manrope_400Regular', 'system-ui'],
+        medium:  ['Manrope_500Medium', 'system-ui'],
+        semi:    ['Manrope_600SemiBold', 'system-ui'],
+        bold:    ['Manrope_700Bold', 'system-ui'],
+        // Display: Fraunces
+        display:     ['Fraunces_900Black', 'Iowan Old Style', 'serif'],
+        displayBold: ['Fraunces_700Bold', 'Iowan Old Style', 'serif'],
+        displayWonk: ['Fraunces_900Black_Italic', 'Iowan Old Style', 'serif'],
+        // `black` previously meant Inter Black; remap to display so any
+        // existing `font-black` callers still get the boldest cut.
+        black:   ['Fraunces_900Black', 'Iowan Old Style', 'serif'],
+        // Mono: JetBrains Mono (eyebrows, stats)
+        mono:        ['JetBrainsMono_400Regular', 'ui-monospace'],
+        monoMedium:  ['JetBrainsMono_500Medium', 'ui-monospace'],
+        monoBold:    ['JetBrainsMono_700Bold', 'ui-monospace'],
       },
       letterSpacing: {
         display: '-3px',

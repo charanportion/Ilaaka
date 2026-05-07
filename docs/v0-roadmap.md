@@ -1,6 +1,6 @@
 # v0 roadmap
 
-The path from empty repo to closed beta in Bengaluru. Each phase ends with something demoable. Build in order; do not skip ahead. The whole thing is achievable solo in 4–6 weeks of focused effort.
+The path from empty repo to closed beta in Hyderabad. Each phase ends with something demoable. Build in order; do not skip ahead. The whole thing is achievable solo in 4–6 weeks of focused effort.
 
 ## Scope of v0
 
@@ -114,7 +114,7 @@ Things that aren't features but matter for shipping to 5–10 friends.
 - `pg_cron` runs `cleanup_expired_zones()` hourly.
 - Weekly stats summary as a Sunday-evening push (PRD §4.6).
 - Sentry + PostHog dashboards set up with the events that matter (signup, first activity, zone captured, zone lost, push received).
-- One round of dogfooding: walk Koramangala for a week, fix every paper-cut.
+- One round of dogfooding: walk Jubilee Hills for a week, fix every paper-cut.
 - TestFlight (iOS) and Internal Testing track (Android Play Console) builds shipped to friends.
 
 **Acceptance:** five friends have the app, have recorded at least three activities each over a week, and at least one zone-steal-and-reclaim has happened between two of them. PostHog shows D1 retention >50%.
@@ -127,7 +127,7 @@ Things that aren't features but matter for shipping to 5–10 friends.
 
 ## What "done" looks like for v0
 
-You can hand the app to a friend who lives in Bengaluru. Within five minutes they can:
+You can hand the app to a friend who lives in Hyderabad. Within five minutes they can:
 1. Sign in with Google.
 2. Walk around their society block.
 3. Hit stop and see their colored hexes on the map.

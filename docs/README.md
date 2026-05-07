@@ -71,7 +71,7 @@ npx expo run:ios       # or run:android
 
 ## Status
 
-**v0 — closed beta** (Bengaluru: Koramangala, Indiranagar, HSR). Target: 500 beta users, validating the core capture loop.
+**v0 — closed beta** (Hyderabad: Jubilee Hills, Banjara Hills, Gachibowli). Target: 500 beta users, validating the core capture loop.
 
 See [`docs/v0-roadmap.md`](docs/v0-roadmap.md) for phase-by-phase scope.
 

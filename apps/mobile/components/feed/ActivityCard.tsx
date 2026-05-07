@@ -22,6 +22,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { StaticActivityMap } from '@/components/feed/StaticActivityMap';
 import { ActivityPhoto } from '@/components/ActivityPhoto';
 import { Text } from '@/components/ui/Text';
+import { Eyebrow } from '@/components/brand/Eyebrow';
 import { useTokens } from '@/lib/useTokens';
 import { toggleActivityLike, activityPhotoUrl } from '@/lib/activities';
 import { capture } from '@/lib/analytics';
@@ -170,6 +171,7 @@ export function ActivityCard({ item }: Props) {
             displayName={item.display_name}
             color={item.color}
             avatarUrl={item.avatar_url}
+            intent="territory"
           />
         </Pressable>
         <Pressable onPress={goProfile} className="flex-1 ml-3">
@@ -177,10 +179,10 @@ export function ActivityCard({ item }: Props) {
             <Text variant="captionStrong">{item.display_name}</Text>
             <VisibilityBadge value={item.visibility} />
           </View>
-          <View className="flex-row items-center mt-0.5">
-            <TypeIcon type={item.type} size={11} color={colors.accent} />
-            <Text variant="tag" tone="muted" style={{ marginLeft: 4 }}>
-              {relativeTime(item.started_at)}
+          <View className="flex-row items-center mt-0.5" style={{ gap: 6 }}>
+            <TypeIcon type={item.type} size={11} color={colors.inkSubtle} />
+            <Text variant="eyebrow">
+              {item.type} · {relativeTime(item.started_at)}
             </Text>
           </View>
         </Pressable>
@@ -189,9 +191,9 @@ export function ActivityCard({ item }: Props) {
       {/* Title + description */}
       <Pressable onPress={goDetail}>
         <View className="px-4 pb-2">
-          <Text variant="h3" tone="strong">{title}</Text>
+          <Text variant="h2" tone="strong" style={{ fontSize: 26, lineHeight: 30 }}>{title}</Text>
           {item.description ? (
-            <Text variant="caption" style={{ marginTop: 4 }} numberOfLines={2}>
+            <Text variant="caption" tone="muted" style={{ marginTop: 6 }} numberOfLines={2}>
               {item.description}
             </Text>
           ) : null}
@@ -200,25 +202,25 @@ export function ActivityCard({ item }: Props) {
         {/* Stats */}
         <View className="flex-row px-4 pb-3">
           <View className="flex-1">
-            <Text variant="tag" tone="subtle" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Distance</Text>
-            <Text variant="bodyStrong" style={{ marginTop: 2 }}>{formatDistance(item.distance_m)}</Text>
+            <Eyebrow>Distance</Eyebrow>
+            <Text variant="bodyStrong" tone="strong" style={{ marginTop: 4 }}>{formatDistance(item.distance_m)}</Text>
           </View>
           {showPace && (
             <View className="flex-1">
-              <Text variant="tag" tone="subtle" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Pace</Text>
-              <Text variant="bodyStrong" style={{ marginTop: 2 }}>{formatPace(item.distance_m, item.duration_s)}</Text>
+              <Eyebrow>Pace</Eyebrow>
+              <Text variant="bodyStrong" tone="strong" style={{ marginTop: 4 }}>{formatPace(item.distance_m, item.duration_s)}</Text>
             </View>
           )}
           {item.area_captured_m2 > 0 && (
             <View className="flex-1">
-              <Text variant="tag" tone="subtle" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Area</Text>
-              <Text variant="bodyStrong" style={{ marginTop: 2 }}>{formatArea(item.area_captured_m2)}</Text>
+              <Eyebrow>Area</Eyebrow>
+              <Text variant="bodyStrong" tone="strong" style={{ marginTop: 4 }}>{formatArea(item.area_captured_m2)}</Text>
             </View>
           )}
           {showCalories && item.calories ? (
             <View className="flex-1">
-              <Text variant="tag" tone="subtle" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Calories</Text>
-              <Text variant="bodyStrong" style={{ marginTop: 2 }}>{item.calories}</Text>
+              <Eyebrow>Calories</Eyebrow>
+              <Text variant="bodyStrong" tone="strong" style={{ marginTop: 4 }}>{item.calories}</Text>
             </View>
           ) : null}
         </View>

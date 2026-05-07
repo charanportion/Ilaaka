@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapRecenterButton } from '@/components/map/MapRecenterButton';
 import { useMapStyleUrl } from '@/lib/theme';
 import { useTokens } from '@/lib/useTokens';
-import { filterOutliers, smoothTrace, type RawPoint } from '@/lib/smooth';
+import { filterOutliers, type RawPoint } from '@/lib/smooth';
 import type { ActivityType } from '@/types/api';
 
 const FOLLOW_ZOOM = 17;
@@ -54,8 +54,15 @@ export function RecorderMap({
 
   const trailFc = useMemo<GeoJSON.Feature<GeoJSON.LineString> | null>(() => {
     if (points.length < 2) return null;
-    const coordinates = smoothTrace(filterOutliers(points, activityType));
-    if (coordinates.length < 2) return null;
+    /* Live trail: outlier-filter only, no EMA smoothing. The EMA used to
+       "round corners" by lagging behind the latest fix — fine for a
+       static replay, terrible for live tracking where the line should
+       end right under the user's dot. The pretty snap-to-roads version
+       runs server-side on submit (see supabase/functions/submit-activity
+       and the project's trace-smoothing pipeline). */
+    const filtered = filterOutliers(points, activityType);
+    if (filtered.length < 2) return null;
+    const coordinates: [number, number][] = filtered.map((p) => [p.lng, p.lat]);
     return {
       type: 'Feature',
       geometry: { type: 'LineString', coordinates },

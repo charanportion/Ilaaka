@@ -7,6 +7,11 @@
  * MapLibre paint expressions, RefreshControl `tintColor`, inline styles).
  * Use Tailwind classes (`bg-bg`, `text-ink`, `border-border`, etc.) for
  * everything that goes through `className`.
+ *
+ * Aesthetic: "Streetlight Cartography" — warm-black ink + paper-cream.
+ * Brand chrome is monochrome only. The four-color territory palette
+ * (saffron / lime / magenta / teal) is exposed as `TERRITORY_PALETTE`
+ * but ZoneMap still consumes the per-user `owner_color` from the server.
  */
 
 export type Palette = {
@@ -30,47 +35,65 @@ export type Palette = {
   focusRing: string;
 };
 
+/* Light — paper-on-ink-text (daytime) */
 export const lightPalette: Palette = {
-  bg:          '#f0f0f3',
-  surface:     '#ffffff',
-  surfaceAlt:  '#f7f7f9',
-  ink:         '#1c2024',
-  inkStrong:   '#000000',
-  inkMuted:    '#60646c',
-  inkSubtle:   '#b0b4ba',
-  border:      '#e0e1e6',
-  borderInput: '#d9d9e0',
-  accent:      '#000000',
-  link:        '#000000',
-  territory:   '#7F77DD',
-  ctaBg:       '#000000',
-  ctaFg:       '#ffffff',
-  warning:     '#ab6400',
-  danger:      '#d93f44',
-  success:     '#1a7f37',
-  focusRing:   '#000000',
+  bg:          '#f8f1e3',
+  surface:     '#fffaee',
+  surfaceAlt:  '#f3ecda',
+  ink:         '#161614',
+  inkStrong:   '#0d0d0c',
+  inkMuted:    '#5a5a4f',
+  inkSubtle:   '#a89e8a',
+  border:      '#ebe3cf',
+  borderInput: '#d2c8b3',
+  accent:      '#0d0d0c',
+  link:        '#0d0d0c',
+  territory:   '#ff7a1a', // fallback only — server's owner_color overrides per-zone
+  ctaBg:       '#0d0d0c',
+  ctaFg:       '#f8f1e3',
+  warning:     '#b56a17',
+  danger:      '#c83a3a',
+  success:     '#2a7a3a',
+  focusRing:   '#0d0d0c',
 };
 
+/* Dark — ink-on-paper-text (nighttime / "streetlight") */
 export const darkPalette: Palette = {
-  bg:          '#0e0f12',
-  surface:     '#171717',
-  surfaceAlt:  '#1f1f22',
-  ink:         '#ECEDEE',
-  inkStrong:   '#ffffff',
-  inkMuted:    '#9aa0a8',
-  inkSubtle:   '#6b6f76',
-  border:      '#2a2c31',
-  borderInput: '#363a3f',
-  accent:      '#ffffff',
-  link:        '#ffffff',
-  territory:   '#9C95EB',
-  ctaBg:       '#ffffff',
-  ctaFg:       '#000000',
-  warning:     '#e0a858',
-  danger:      '#eb8e90',
-  success:     '#3fb950',
-  focusRing:   '#ffffff',
+  bg:          '#0d0d0c',
+  surface:     '#161614',
+  surfaceAlt:  '#24241f',
+  ink:         '#f3ecda',
+  inkStrong:   '#f8f1e3',
+  inkMuted:    '#a89e8a',
+  inkSubtle:   '#807868',
+  border:      '#24241f',
+  borderInput: '#3a3a33',
+  accent:      '#f8f1e3',
+  link:        '#f8f1e3',
+  territory:   '#ff7a1a',
+  ctaBg:       '#f8f1e3',
+  ctaFg:       '#0d0d0c',
+  warning:     '#d8923a',
+  danger:      '#e8746a',
+  success:     '#6cc97a',
+  focusRing:   '#f8f1e3',
 };
+
+/**
+ * Territory palette. Reserved for territory representations only —
+ * not consumed by `ZoneMap` today (each zone uses the per-user
+ * `owner_color` returned by the API). Available for future surfaces
+ * that want to differentiate territory states (claimed / fresh /
+ * stolen / rare).
+ */
+export const TERRITORY_PALETTE = {
+  saffron: '#ff7a1a',
+  lime:    '#c7f340',
+  magenta: '#ff2d87',
+  teal:    '#2bd9b8',
+} as const;
+
+export type TerritoryColor = keyof typeof TERRITORY_PALETTE;
 
 export const radius = {
   xs: 4,
@@ -125,30 +148,46 @@ export const shadows = {
   },
 } as const;
 
+/**
+ * Typography variants.
+ * - `display` / `h1` / `h2` use Fraunces (high-contrast variable serif).
+ *   Variable axes (SOFT/WONK) aren't reachable from `expo-google-fonts`
+ *   static cuts — `displayWonk` approximates the wonk-italic moments
+ *   from the landing using `Fraunces_900Black_Italic`.
+ * - `h3` and all body / caption / tag variants use Manrope.
+ * - `code*` and `eyebrow` use JetBrains Mono. Eyebrow is the small
+ *   uppercase tracked label that anchors editorial sections (matches
+ *   the landing's `.eyebrow` class).
+ */
 export const typography = {
-  display:    { fontFamily: 'Inter_900Black',           fontSize: 64, lineHeight: 70, letterSpacing: -3 },
-  h1:         { fontFamily: 'Inter_700Bold',            fontSize: 48, lineHeight: 53, letterSpacing: -2 },
-  h2:         { fontFamily: 'Inter_600SemiBold',        fontSize: 32, lineHeight: 36, letterSpacing: -1 },
-  h3:         { fontFamily: 'Inter_600SemiBold',        fontSize: 20, lineHeight: 24, letterSpacing: -0.25 },
-  bodyLg:     { fontFamily: 'Inter_400Regular',         fontSize: 18, lineHeight: 25, letterSpacing: 0 },
-  body:       { fontFamily: 'Inter_400Regular',         fontSize: 16, lineHeight: 22, letterSpacing: 0 },
-  bodyStrong: { fontFamily: 'Inter_600SemiBold',        fontSize: 16, lineHeight: 22, letterSpacing: 0 },
-  caption:    { fontFamily: 'Inter_500Medium',          fontSize: 14, lineHeight: 18, letterSpacing: 0 },
-  captionStrong: { fontFamily: 'Inter_600SemiBold',     fontSize: 14, lineHeight: 18, letterSpacing: 0 },
-  tag:        { fontFamily: 'Inter_500Medium',          fontSize: 12, lineHeight: 16, letterSpacing: 0 },
-  tagStrong:  { fontFamily: 'Inter_700Bold',            fontSize: 12, lineHeight: 16, letterSpacing: 0.4 },
-  code:       { fontFamily: 'JetBrainsMono_400Regular', fontSize: 14, lineHeight: 20, letterSpacing: 0 },
-  codeStrong: { fontFamily: 'JetBrainsMono_700Bold',    fontSize: 14, lineHeight: 20, letterSpacing: 0 },
+  display:       { fontFamily: 'Fraunces_900Black',         fontSize: 64, lineHeight: 70, letterSpacing: -3 },
+  displayWonk:   { fontFamily: 'Fraunces_900Black_Italic',  fontSize: 64, lineHeight: 70, letterSpacing: -3 },
+  h1:            { fontFamily: 'Fraunces_900Black',         fontSize: 48, lineHeight: 53, letterSpacing: -2 },
+  h2:            { fontFamily: 'Fraunces_700Bold',          fontSize: 32, lineHeight: 36, letterSpacing: -1 },
+  h3:            { fontFamily: 'Manrope_600SemiBold',       fontSize: 20, lineHeight: 24, letterSpacing: -0.25 },
+  bodyLg:        { fontFamily: 'Manrope_400Regular',        fontSize: 18, lineHeight: 25, letterSpacing: 0 },
+  body:          { fontFamily: 'Manrope_400Regular',        fontSize: 16, lineHeight: 22, letterSpacing: 0 },
+  bodyStrong:    { fontFamily: 'Manrope_600SemiBold',       fontSize: 16, lineHeight: 22, letterSpacing: 0 },
+  caption:       { fontFamily: 'Manrope_500Medium',         fontSize: 14, lineHeight: 18, letterSpacing: 0 },
+  captionStrong: { fontFamily: 'Manrope_600SemiBold',       fontSize: 14, lineHeight: 18, letterSpacing: 0 },
+  tag:           { fontFamily: 'Manrope_500Medium',         fontSize: 12, lineHeight: 16, letterSpacing: 0 },
+  tagStrong:     { fontFamily: 'Manrope_700Bold',           fontSize: 12, lineHeight: 16, letterSpacing: 0.4 },
+  code:          { fontFamily: 'JetBrainsMono_400Regular',  fontSize: 14, lineHeight: 20, letterSpacing: 0 },
+  codeStrong:    { fontFamily: 'JetBrainsMono_700Bold',     fontSize: 14, lineHeight: 20, letterSpacing: 0 },
+  eyebrow:       { fontFamily: 'JetBrainsMono_500Medium',   fontSize: 11, lineHeight: 14, letterSpacing: 2 },
 } as const;
 
 export type TypographyVariant = keyof typeof typography;
 
 export const FONTS_TO_LOAD = [
-  'Inter_400Regular',
-  'Inter_500Medium',
-  'Inter_600SemiBold',
-  'Inter_700Bold',
-  'Inter_900Black',
+  'Fraunces_700Bold',
+  'Fraunces_900Black',
+  'Fraunces_900Black_Italic',
+  'Manrope_400Regular',
+  'Manrope_500Medium',
+  'Manrope_600SemiBold',
+  'Manrope_700Bold',
   'JetBrainsMono_400Regular',
+  'JetBrainsMono_500Medium',
   'JetBrainsMono_700Bold',
 ] as const;

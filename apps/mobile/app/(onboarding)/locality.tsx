@@ -144,7 +144,7 @@ export default function LocalityScreen() {
           <TextInput
             value={resolved}
             onChangeText={setResolved}
-            placeholder="e.g. Koramangala 5th Block"
+            placeholder="e.g. Jubilee Hills, Road No. 36"
             placeholderTextColor={colors.inkSubtle}
             autoCapitalize="words"
             style={{

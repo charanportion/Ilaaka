@@ -32,7 +32,7 @@ create table public.profiles (
   display_name    text not null,
   avatar_url      text,
   color           text not null default '#7F77DD',  -- hex, used for zone fill
-  city            text,                              -- e.g., 'Bengaluru'
+  city            text,                              -- e.g., 'Hyderabad'
   home_geom       geometry(Point, 4326),             -- for ghost zone (v1)
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
@@ -337,7 +337,7 @@ select cron.schedule('cleanup_expired_zones', '0 * * * *', $$ select public.clea
 
 Keep `supabase/seed.sql` for local dev only. Don't run it on prod. Useful for:
 - Five fake users with predictable colors.
-- A handful of pre-owned zones in Koramangala for visual testing.
+- A handful of pre-owned zones in Jubilee Hills for visual testing.
 
 ```sql
 -- supabase/seed.sql (gitignored if it has secrets)

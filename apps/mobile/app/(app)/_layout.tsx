@@ -15,7 +15,7 @@ export default function AppLayout() {
           borderTopColor:  colors.border,
         },
         tabBarLabelStyle: {
-          fontFamily: 'Inter_500Medium',
+          fontFamily: 'Manrope_500Medium',
           fontSize: 11,
         },
       }}

@@ -14,6 +14,7 @@ import { formatDistance, formatArea } from '@/lib/format';
 import { Avatar } from '@/components/ui/Avatar';
 import { Text } from '@/components/ui/Text';
 import { Card } from '@/components/ui/Card';
+import { Eyebrow } from '@/components/brand/Eyebrow';
 
 const TERRITORY_COLORS = [
   '#E53935',
@@ -126,10 +127,11 @@ export default function ProfileScreen() {
                   displayName={profile.display_name}
                   color={profile.color}
                   avatarUrl={profile.avatar_url}
+                  intent="territory"
                 />
               </View>
-              <Text variant="h3" tone="strong">{profile.display_name}</Text>
-              <Text variant="caption" tone="subtle" style={{ marginBottom: 12 }}>@{profile.username}</Text>
+              <Text variant="h2" tone="strong" align="center">{profile.display_name}</Text>
+              <Text variant="caption" tone="subtle" style={{ marginBottom: 12, marginTop: 2 }}>@{profile.username}</Text>
               <TouchableOpacity
                 onPress={() => router.push('/(app)/edit-profile' as never)}
                 className="flex-row items-center bg-surfaceAlt px-4 py-2 rounded-pill border border-border"
@@ -147,9 +149,7 @@ export default function ProfileScreen() {
         {/* Zone stats */}
         <Card padding={20} elevation="whisper" style={{ marginBottom: 24 }}>
           <View className="flex-row items-center justify-between mb-4">
-            <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase' }}>
-              Zone stats
-            </Text>
+            <Eyebrow>Zone stats</Eyebrow>
             <TouchableOpacity onPress={handleRefresh} hitSlop={12}>
               <RefreshCw size={16} color={refreshing ? colors.inkSubtle : colors.accent} />
             </TouchableOpacity>
@@ -157,13 +157,17 @@ export default function ProfileScreen() {
           {stats ? (
             <View className="flex-row">
               <View className="flex-1 items-center">
-                <Text variant="h2" tone="strong">{formatDistance(stats.distance_walked_m)}</Text>
-                <Text variant="tag" tone="muted" style={{ marginTop: 4 }}>Distance walked</Text>
+                <Text variant="h1" tone="strong" style={{ fontSize: 36, lineHeight: 40 }}>
+                  {formatDistance(stats.distance_walked_m)}
+                </Text>
+                <Eyebrow style={{ marginTop: 6 }}>Distance walked</Eyebrow>
               </View>
               <View style={{ width: 1, backgroundColor: colors.border }} />
               <View className="flex-1 items-center">
-                <Text variant="h2" tone="strong">{formatArea(stats.area_captured_m2)}</Text>
-                <Text variant="tag" tone="muted" style={{ marginTop: 4 }}>Area captured</Text>
+                <Text variant="h1" tone="strong" style={{ fontSize: 36, lineHeight: 40 }}>
+                  {formatArea(stats.area_captured_m2)}
+                </Text>
+                <Eyebrow style={{ marginTop: 6 }}>Area captured</Eyebrow>
               </View>
             </View>
           ) : (
@@ -203,9 +207,7 @@ export default function ProfileScreen() {
 
         {profile && (
           <Card padding={20} elevation="whisper" style={{ marginBottom: 24 }}>
-            <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase', marginBottom: 16 }}>
-              Territory Color
-            </Text>
+            <Eyebrow bullet style={{ marginBottom: 16 }}>Territory color</Eyebrow>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
               {TERRITORY_COLORS.map((c) => (
                 <TouchableOpacity
@@ -235,9 +237,7 @@ export default function ProfileScreen() {
 
         {/* Appearance */}
         <Card padding={20} elevation="whisper" style={{ marginBottom: 24 }}>
-          <Text variant="tagStrong" tone="muted" style={{ textTransform: 'uppercase', marginBottom: 16 }}>
-            Appearance
-          </Text>
+          <Eyebrow style={{ marginBottom: 16 }}>Appearance</Eyebrow>
           <View className="flex-row bg-surfaceAlt rounded-md p-1">
             {([
               { value: 'light',  label: 'Light',  Icon: Sun },

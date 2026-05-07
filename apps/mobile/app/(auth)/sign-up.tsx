@@ -10,6 +10,8 @@ import { signUpWithEmail } from '@/lib/auth';
 import { Text } from '@/components/ui/Text';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { Eyebrow } from '@/components/brand/Eyebrow';
+import { ScribbleSticker } from '@/components/brand/ScribbleSticker';
 import { useTokens } from '@/lib/useTokens';
 
 // Reasonable RFC-5322 simplification — full RFC is unverifiable in practice.
@@ -74,10 +76,28 @@ export default function SignUpScreen() {
       className="flex-1 bg-bg"
     >
       <View className="flex-1 justify-center px-6">
-        <Text variant="h1" tone="strong" align="center" style={{ marginBottom: 8 }}>Ilaaka</Text>
-        <Text variant="bodyLg" tone="muted" align="center" style={{ marginBottom: 40 }}>
-          Create your account
-        </Text>
+        <View style={{ alignItems: 'center', marginBottom: 36 }}>
+          <Eyebrow style={{ marginBottom: 18, justifyContent: 'center' }}>
+            New walker · Hyderabad
+          </Eyebrow>
+          <ScribbleSticker inset={{ x: 18, y: 6 }} style={{ alignSelf: 'center' }}>
+            <Text
+              variant="displayWonk"
+              tone="inverse"
+              style={{ fontSize: 56, lineHeight: 60, paddingHorizontal: 4 }}
+            >
+              ilaaka
+            </Text>
+          </ScribbleSticker>
+          <Text
+            variant="bodyLg"
+            tone="muted"
+            align="center"
+            style={{ marginTop: 22 }}
+          >
+            Claim your neighbourhood.
+          </Text>
+        </View>
 
         <Input
           label="Email"

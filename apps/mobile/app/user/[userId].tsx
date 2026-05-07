@@ -200,6 +200,7 @@ export default function UserProfileScreen() {
               displayName={profile.display_name}
               color={profile.color}
               avatarUrl={profile.avatar_url}
+              intent="territory"
             />
           </View>
           <Text variant="h3" tone="strong">{profile.display_name}</Text>

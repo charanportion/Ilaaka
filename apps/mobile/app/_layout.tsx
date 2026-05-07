@@ -4,16 +4,21 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider, DarkTheme, DefaultTheme, type Theme } from '@react-navigation/native';
 import type { Session } from '@supabase/supabase-js';
+import { useFonts } from 'expo-font';
 import {
-  useFonts,
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-  Inter_900Black,
-} from '@expo-google-fonts/inter';
+  Fraunces_700Bold,
+  Fraunces_900Black,
+  Fraunces_900Black_Italic,
+} from '@expo-google-fonts/fraunces';
+import {
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+} from '@expo-google-fonts/manrope';
 import {
   JetBrainsMono_400Regular,
+  JetBrainsMono_500Medium,
   JetBrainsMono_700Bold,
 } from '@expo-google-fonts/jetbrains-mono';
 import { supabase } from '@/lib/supabase';
@@ -41,12 +46,15 @@ export default function RootLayout() {
   const profile = useAuthStore((s) => s.profile);
 
   const [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    Inter_900Black,
+    Fraunces_700Bold,
+    Fraunces_900Black,
+    Fraunces_900Black_Italic,
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
     JetBrainsMono_400Regular,
+    JetBrainsMono_500Medium,
     JetBrainsMono_700Bold,
   });
 
@@ -90,6 +98,7 @@ export default function RootLayout() {
     const inAuth = segments[0] === '(auth)';
     const inCallback = segments[0] === 'auth-callback';
     const inOnboarding = segments[0] === '(onboarding)';
+    const onBlocked = segments[0] === 'blocked';
     if (inCallback) return;
     if (!session) {
       if (!inAuth) router.replace('/(auth)/sign-in');
@@ -99,11 +108,26 @@ export default function RootLayout() {
     // Without the profile we don't know whether the user has completed Tier 1.
     if (!profile) return;
     const onboardingDone = profile.onboarding_completed_at != null;
+    const regionBlocked = profile.region_status === 'blocked';
     // The permissions screen is the post-Q3 tail of onboarding. We set
     // onboarding_completed_at after Q3, so this screen is reachable while the
     // gate would otherwise treat the user as "done" and redirect to the app.
     // Whitelist it so the user can finish the permissions flow.
     const onPermissions = inOnboarding && segments[1] === 'permissions';
+
+    // Region gate trumps everything except onboarding-not-done. A blocked
+    // user must always sit on the /blocked screen regardless of how they
+    // try to navigate around it.
+    if (onboardingDone && regionBlocked && !onBlocked) {
+      router.replace('/blocked');
+      return;
+    }
+    // Inverse: if they're allowed (or recheck flipped them to allowed)
+    // and somehow ended up on /blocked, route them to the app.
+    if (onboardingDone && !regionBlocked && onBlocked) {
+      router.replace('/(app)/map');
+      return;
+    }
     if (!onboardingDone && !inOnboarding) {
       router.replace('/(onboarding)/username');
     } else if (onboardingDone && (inAuth || (inOnboarding && !onPermissions))) {
@@ -150,6 +174,7 @@ function ThemedShell() {
         <Stack.Screen name="(app)" />
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="auth-callback" />
+        <Stack.Screen name="blocked" options={{ gestureEnabled: false }} />
       </Stack>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>

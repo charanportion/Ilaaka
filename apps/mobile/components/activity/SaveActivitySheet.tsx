@@ -339,7 +339,7 @@ export function SaveActivitySheet({
             size="lg"
             onPress={onDiscard}
             disabled={publishing}
-            style={{ flex: 1, marginRight: 6,justifyContent: "center" }}
+            style={{ flex: 1, marginRight: 6 }}
           />
           <Button
             label="Publish"
@@ -348,7 +348,7 @@ export function SaveActivitySheet({
             onPress={handlePublish}
             loading={publishing}
             disabled={publishing || uploading}
-            style={{ flex: 1, marginLeft: 6, justifyContent: "center" }}
+            style={{ flex: 1, marginLeft: 6 }}
           />
         </View>
       </View>

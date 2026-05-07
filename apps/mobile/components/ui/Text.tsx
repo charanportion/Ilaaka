@@ -33,6 +33,13 @@ export function Text({
     tone === 'inverse' ? colors.ctaFg      :
                           colors.ink;
 
+  /* The eyebrow variant is conventionally rendered uppercase. RN can't
+     express that via fontFamily, so we apply textTransform here. Default
+     tone for eyebrows is muted (matches landing's `.eyebrow`). */
+  const isEyebrow = variant === 'eyebrow';
+  const resolvedColor =
+    isEyebrow && tone === 'default' ? colors.inkSubtle : color;
+
   return (
     <RNText
       {...rest}
@@ -42,8 +49,9 @@ export function Text({
           fontSize: t.fontSize,
           lineHeight: t.lineHeight,
           letterSpacing: t.letterSpacing,
-          color,
+          color: resolvedColor,
         },
+        isEyebrow ? { textTransform: 'uppercase' as const } : null,
         align ? { textAlign: align } : null,
         style,
       ]}

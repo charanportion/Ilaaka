@@ -2,47 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mirrors apps/mobile/lib/design-tokens.ts. Update both together. */
+
 @layer base {
   :root {
-    --bg: #f0f0f3;
-    --surface: #ffffff;
-    --surface-alt: #f7f7f9;
-    --ink: #1c2024;
-    --ink-strong: #000000;
-    --ink-muted: #60646c;
-    --ink-subtle: #b0b4ba;
-    --border: #e0e1e6;
-    --border-input: #d9d9e0;
-    --accent: #000000;
-    --link: #000000;
-    --territory: #7F77DD;
-    --cta-bg: #000000;
-    --cta-fg: #ffffff;
-    --warning: #ab6400;
-    --danger: #d93f44;
-    --success: #1a7f37;
-    --focus-ring: #000000;
+    --bg: #f8f1e3;
+    --surface: #fffaee;
+    --surface-alt: #f3ecda;
+    --ink: #161614;
+    --ink-strong: #0d0d0c;
+    --ink-muted: #5a5a4f;
+    --ink-subtle: #a89e8a;
+    --border: #ebe3cf;
+    --border-input: #d2c8b3;
+    --accent: #0d0d0c;
+    --link: #0d0d0c;
+    --territory: #ff7a1a;
+    --cta-bg: #0d0d0c;
+    --cta-fg: #f8f1e3;
+    --warning: #b56a17;
+    --danger: #c83a3a;
+    --success: #2a7a3a;
+    --focus-ring: #0d0d0c;
   }
 
   .dark:root,
   :root.dark {
-    --bg: #0e0f12;
-    --surface: #171717;
-    --surface-alt: #1f1f22;
-    --ink: #ECEDEE;
-    --ink-strong: #ffffff;
-    --ink-muted: #9aa0a8;
-    --ink-subtle: #6b6f76;
-    --border: #2a2c31;
-    --border-input: #363a3f;
-    --accent: #ffffff;
-    --link: #ffffff;
-    --territory: #9C95EB;
-    --cta-bg: #ffffff;
-    --cta-fg: #000000;
-    --warning: #e0a858;
-    --danger: #eb8e90;
-    --success: #3fb950;
-    --focus-ring: #ffffff;
+    --bg: #0d0d0c;
+    --surface: #161614;
+    --surface-alt: #24241f;
+    --ink: #f3ecda;
+    --ink-strong: #f8f1e3;
+    --ink-muted: #a89e8a;
+    --ink-subtle: #807868;
+    --border: #24241f;
+    --border-input: #3a3a33;
+    --accent: #f8f1e3;
+    --link: #f8f1e3;
+    --territory: #ff7a1a;
+    --cta-bg: #f8f1e3;
+    --cta-fg: #0d0d0c;
+    --warning: #d8923a;
+    --danger: #e8746a;
+    --success: #6cc97a;
+    --focus-ring: #f8f1e3;
   }
 }

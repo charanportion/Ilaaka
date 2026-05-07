@@ -4,6 +4,7 @@ import type {
   FrequencyKind,
   MotivationKind,
   OwnProfile,
+  RegionStatus,
   UserActivity,
   UserPublicProfile,
 } from '@/types/api';
@@ -32,7 +33,7 @@ export async function fetchUserRecentActivities(
 }
 
 const OWN_PROFILE_COLUMNS =
-  'id, username, display_name, avatar_url, color, usual_locality, primary_activity, motivation, target_frequency, usual_time_slot, onboarding_completed_at';
+  'id, username, display_name, avatar_url, color, usual_locality, primary_activity, motivation, target_frequency, usual_time_slot, onboarding_completed_at, region_status';
 
 export async function fetchOwnProfile(userId: string): Promise<OwnProfile | null> {
   const { data, error } = await supabase
@@ -82,6 +83,45 @@ export async function updateProfileTier1(
     .single();
   if (error) throw error;
   return data as OwnProfile;
+}
+
+export async function setRegionStatus(
+  userId: string,
+  status: RegionStatus,
+): Promise<OwnProfile> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ region_status: status })
+    .eq('id', userId)
+    .select(OWN_PROFILE_COLUMNS)
+    .single();
+  if (error) throw error;
+  return data as OwnProfile;
+}
+
+type RegionRequestInput = {
+  city: string;
+  detected_lat?: number | null;
+  detected_lng?: number | null;
+  source?: 'blocked_signup' | 'blocked_recheck';
+};
+
+export async function submitRegionRequest(
+  userId: string,
+  input: RegionRequestInput,
+): Promise<void> {
+  const { error } = await supabase.from('region_requests').insert({
+    user_id: userId,
+    city: input.city,
+    detected_lat: input.detected_lat ?? null,
+    detected_lng: input.detected_lng ?? null,
+    source: input.source ?? null,
+  });
+  /* Idempotent — the unique(user_id, lower(city)) index means re-submits
+     come back as a duplicate-key error, which we treat as success. */
+  if (error && !/duplicate key|unique constraint/i.test(error.message)) {
+    throw error;
+  }
 }
 
 type Tier2Input = {
