@@ -1,6 +1,6 @@
 # Ilaaka — Landing Page (`apps/landing`)
 
-The marketing site for **ilaaka.app**. Single-page, mobile-first, optimised
+The marketing site for **ilaaka.dotportion.com**. Single-page, mobile-first, optimised
 for one outcome: getting the visitor to install the app.
 
 ## Aesthetic — "Streetlight Cartography"

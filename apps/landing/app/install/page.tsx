@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: "Install Ilaaka — Android",
   description:
     "Direct APK install for Ilaaka. Auto-downloads on Android with step-by-step install instructions.",
-  alternates: { canonical: "https://ilaaka.app/install" },
+  alternates: { canonical: "https://ilaaka.dotportion.com/install" },
   robots: { index: false, follow: true },
 };
 

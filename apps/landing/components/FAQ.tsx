@@ -5,20 +5,24 @@ import { track } from "@/lib/analytics";
 
 const QS = [
   {
-    q: "Is it free?",
-    a: "Yes, completely free during the beta. No ads, no premium tier yet.",
+    q: "What stops someone driving and claiming the whole city?",
+    a: "Speed, the shape of the trace, and how it pauses. Cars sweep wide arcs at corners and don't slow at footpaths; scooters don't stop the way walkers do at signals and crossings. Anything that looks vehicular gets thrown out before it claims a single cell. If a route on your map still looks fishy, the in-app report comes straight to me.",
   },
   {
-    q: "Does it drain my battery?",
-    a: "We use the same battery-aware GPS APIs Google Maps and Strava use. A 30-minute walk costs about as much battery as a 30-minute call.",
+    q: "Why an APK and not the Play Store?",
+    a: "Beta builds ship direct so I can push a fix the same day instead of waiting on a week-long Play Store review. The APK is signed by me and asks for exactly one sensitive permission — location, only while a walk is active. The Play Store listing is in review; once it lands, the app will prompt you to migrate in one tap.",
   },
   {
-    q: "Can I use it outside Hyderabad?",
-    a: "The app works anywhere, but our community is concentrated in Hyderabad right now. If you're elsewhere, drop your city in the email field — we'll let you know when there's a critical mass in your area.",
+    q: "Do I need to keep the app open while I walk?",
+    a: "No. Hit start, lock your phone, drop it in your pocket. Android keeps a small persistent notification visible while a recording is running — that's what stops the OS from killing the GPS halfway through. Stop the walk from the notification or the app when you're back. A 30-minute walk costs roughly the same battery as a 30-minute call.",
   },
   {
-    q: "What about my privacy?",
-    a: "We never sell your location data. You can mark a private radius around your home — zones inside it never appear publicly. Your raw GPS trace is only ever visible to you.",
+    q: "What if I disappear for a couple of weeks?",
+    a: "Zones expire 14 days after the last walk through them — yours or anyone else's. Take a 10-day holiday and your streets are all still there. Take a month off and they fade. Walk any one of your old routes when you're back and the whole stretch clicks back to your colour.",
+  },
+  {
+    q: "iPhone?",
+    a: "Native iOS is in build, not ready yet. Tap Get the app on an iPhone (or scan the QR from a desktop) and you'll land on a one-field email form. I'll write to you the day TestFlight opens — not before, and not as a marketing blast.",
   },
 ];
 
@@ -33,7 +37,7 @@ export function FAQ() {
         <header className="mb-12 sm:mb-16 max-w-3xl">
           <p className="eyebrow mb-5">Before you ask</p>
           <h2 className="display-2 text-fg text-balance">
-            Four{" "}
+            Five{" "}
             <span className="wonk text-fg">honest</span> answers.
           </h2>
         </header>

@@ -14,7 +14,7 @@ type NetworkInformation = {
 };
 
 const SLOW_TYPES: ConnectionType[] = ["slow-2g", "2g", "3g"];
-const INSTALL_URL = "https://ilaaka.app/install";
+const INSTALL_URL = "https://ilaaka.dotportion.com/install";
 
 function readNetwork(): { effectiveType: ConnectionType; saveData: boolean } {
   if (typeof navigator === "undefined") {

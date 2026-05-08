@@ -5,7 +5,7 @@ import { QrCode } from "@/components/install/QrCode";
 
 type Props = { open: boolean; onClose: () => void };
 
-const INSTALL_URL = "https://ilaaka.app/install";
+const INSTALL_URL = "https://ilaaka.dotportion.com/install";
 
 export function QrModal({ open, onClose }: Props) {
   const titleId = useId();

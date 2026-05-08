@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { InstallButton } from "./InstallButton";
 
 type Props = {
@@ -39,15 +40,15 @@ export function FounderNote({ onOpenWaitlist, onOpenQr }: Props) {
                   "linear-gradient(135deg, var(--color-fg), color-mix(in oklab, var(--color-fg) 70%, transparent), color-mix(in oklab, var(--color-fg) 35%, transparent))",
               }}
             >
-              <div
-                className="w-full h-full rounded-full grid place-items-center font-display text-[2.6rem] sm:text-[3.6rem] font-bold -tracking-[0.04em]"
-                style={{
-                  backgroundColor: "var(--color-canvas-2)",
-                  color: "var(--color-fg)",
-                }}
-              >
-                S
-              </div>
+              <Image
+                src="/founder.jpg"
+                alt="Sri Charan, founder of Ilaaka"
+                width={128}
+                height={128}
+                sizes="(min-width: 640px) 128px, 80px"
+                className="w-full h-full rounded-full object-cover"
+                style={{ backgroundColor: "var(--color-canvas-2)" }}
+              />
             </div>
             {/* tiny verified dot */}
             <span

@@ -440,6 +440,31 @@
   border-radius: 4px;
 }
 
+/* ----------------------------- legal pages ------------------------- */
+/* Used by /privacy and /terms. Tailwind 4's reset strips list bullets,
+   and these pages need the long-form prose look — bullets, bolds,
+   tightened paragraph rhythm. */
+.legal-prose ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding-left: 1.25rem;
+  list-style: disc outside;
+}
+
+.legal-prose ul li::marker {
+  color: var(--color-fg-subtle);
+}
+
+.legal-prose strong {
+  color: var(--color-fg);
+  font-weight: 600;
+}
+
+.legal-prose a {
+  color: var(--color-fg);
+}
+
 /* --------------------- accessible motion preference ----------------- */
 @media (prefers-reduced-motion: reduce) {
   *,

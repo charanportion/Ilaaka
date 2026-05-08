@@ -28,7 +28,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ilaaka.app"),
+  metadataBase: new URL("https://ilaaka.dotportion.com"),
   title: "Ilaaka — Apna Ilaaka. Apni Fitness.",
   description:
     "The fitness app where every step claims territory. Walk, run, or cycle your neighborhood — your route locks in colored zones on the map.",
@@ -56,7 +56,7 @@ export const metadata: Metadata = {
     images: ["/og-image.png"],
   },
   alternates: {
-    canonical: "https://ilaaka.app",
+    canonical: "https://ilaaka.dotportion.com",
   },
   robots: { index: true, follow: true },
 };
