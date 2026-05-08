@@ -17,7 +17,7 @@ export function Footer() {
         <nav className="flex items-center gap-6 sm:gap-8 font-mono text-[12px] tracking-[0.18em] uppercase text-fg-muted/70">
           <a href="/privacy" className="hover:text-fg transition-colors">Privacy</a>
           <a href="/terms" className="hover:text-fg transition-colors">Terms</a>
-          <a href="mailto:sri@ilaaka.app" className="hover:text-fg transition-colors">Contact</a>
+          <a href="mailto:sricharan.rayala@dotportion.com" className="hover:text-fg transition-colors">Contact</a>
         </nav>
       </div>
     </footer>
