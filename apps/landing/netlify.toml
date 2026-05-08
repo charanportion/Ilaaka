@@ -3,6 +3,17 @@
 # The base directory is set in the Netlify dashboard (apps/landing), so paths
 # in this file are relative to apps/landing/.
 
+[build]
+  command = "pnpm build"
+  publish = ".next"
+
+# Netlify's official Next.js Runtime handles SSR, dynamic routes, image
+# optimization, ISR, etc. It usually auto-installs on framework detection,
+# but listing it explicitly avoids the "publish defaulted to source dir →
+# 404" failure mode in monorepos.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
 [build.environment]
   # NEXT_PUBLIC_* values are embedded in client bundles by design — that's
   # what the prefix means. Both Supabase anon keys (gated by RLS) and the
@@ -12,6 +23,5 @@
 
   # The Android APK in public/ is a separately-built artifact that bundles
   # the same NEXT_PUBLIC_* values as part of its own build (the mobile app
-  # talks to Supabase too). The scanner finds them inside the binary —
-  # also expected. Glob covers future version bumps.
+  # talks to Supabase too). Glob covers future version bumps.
   SECRETS_SCAN_OMIT_PATHS = "public/ilaaka_*.apk"

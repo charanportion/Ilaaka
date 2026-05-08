@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "netlify": {
+      "command": "npx",
+      "args": ["-y", "@netlify/mcp"],
+      "env": {
+        "NETLIFY_AUTH_TOKEN": "nfp_HiiDhBetfeXh8mGtzzvq3gMCNPoDdxWq9df4"
+      }
+    }
+  }
+}
