@@ -30,6 +30,7 @@ import { clearLocalUserData } from '@/lib/local-data';
 import { ThemeSyncer } from '@/components/theme/ThemeSyncer';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ToastProvider } from '@/components/Toast';
+import { UpdateGate } from '@/components/UpdateGate';
 import { useResolvedColorScheme } from '@/lib/theme';
 import { darkPalette, lightPalette } from '@/lib/design-tokens';
 
@@ -141,7 +142,9 @@ export default function RootLayout() {
     <ErrorBoundary>
       <ThemeSyncer />
       <ToastProvider>
-        <ThemedShell />
+        <UpdateGate>
+          <ThemedShell />
+        </UpdateGate>
       </ToastProvider>
     </ErrorBoundary>
   );

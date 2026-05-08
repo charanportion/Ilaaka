@@ -2,7 +2,7 @@
   "expo": {
     "name": "Ilaaka",
     "slug": "ilaaka",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ilaaka",
@@ -22,7 +22,7 @@
     "android": {
       "package": "com.dotportion.ilaaka",
       "adaptiveIcon": {
-        "backgroundColor": "#000000",
+        "backgroundColor": "#08070a",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -66,9 +66,9 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "imageWidth": 240,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#08070a"
         }
       ],
       ["@sentry/react-native", { "organization": "dotportion", "project": "ilaaka" }],
