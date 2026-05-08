@@ -27,9 +27,9 @@ export const APP_STORE_URL =
  */
 export const APK = {
   url: APK_URL,
-  version: "1.0.0",
-  sizeBytes: 60_541_281,
-  sha256: "661c8d3e3be4ae4791c6a5ec85ba3cb638af9ec5ba661ca152a3e9d021c026a3",
+  version: "1.0.1",
+  sizeBytes: 60_927_206,
+  sha256: "12f419f7a43b309b4c6b3cae416e88da3789d280c0af78cced741c1207e1160d",
   minAndroid: "10",
   releasedAt: "2026-05-08",
 } as const;
