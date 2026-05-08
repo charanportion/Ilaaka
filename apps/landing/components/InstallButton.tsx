@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { detectPlatformClient, type Platform } from "@/lib/platform-detect";
-import { LAUNCH, APK_URL, APP_STORE_URL } from "@/lib/launch-phases";
+import { LAUNCH, APP_STORE_URL } from "@/lib/launch-phases";
 import { track } from "@/lib/analytics";
 
 type Props = {
@@ -54,15 +54,12 @@ export function InstallButton({
     track("install_button_clicked", { platform: live, button_location: location });
 
     if (live === "android") {
-      /* Direct APK download — no Play Store yet. The browser handles the
-         install prompt; users may need "Install unknown apps" enabled. */
-      const a = document.createElement("a");
-      a.href = APK_URL;
-      a.download = "ilaaka.apk";
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      /* Route Android users through the dedicated /install page rather
+         than firing the download inline. The page auto-starts the
+         download but also surfaces install instructions, version /
+         size / SHA, and a slow-network warning — none of which the
+         browser's built-in download manager can show. */
+      window.location.href = "/install";
       return;
     }
     if (live === "ios" && LAUNCH.ios === "app_store_live") {

@@ -6,7 +6,10 @@ type EventName =
   | "qr_modal_opened"
   | "waitlist_sheet_opened"
   | "waitlist_submitted"
-  | "faq_opened";
+  | "faq_opened"
+  | "install_page_viewed"
+  | "apk_download_triggered"
+  | "install_network_slow_warning_shown";
 
 type Props = Record<string, string | number | boolean | undefined | null>;
 

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useId } from "react";
-import { APK_URL } from "@/lib/launch-phases";
+import { QrCode } from "@/components/install/QrCode";
 
 type Props = { open: boolean; onClose: () => void };
+
+const INSTALL_URL = "https://ilaaka.app/install";
 
 export function QrModal({ open, onClose }: Props) {
   const titleId = useId();
@@ -52,8 +54,8 @@ export function QrModal({ open, onClose }: Props) {
           Point your phone at the code.
         </h3>
         <p className="mt-3 text-fg-muted/70 text-[0.95rem] max-w-[34ch] mx-auto">
-          You'll download the Ilaaka APK and install it directly — no Play
-          Store yet.
+          Scanning lands on our install page where the APK download starts
+          automatically and the install steps are explained.
         </p>
 
         {/* QR plate stays paper-cream regardless of theme — most QR scanners
@@ -66,7 +68,7 @@ export function QrModal({ open, onClose }: Props) {
             border: "1px solid var(--color-rule)",
           }}
         >
-          <FauxQr />
+          <QrCode value={INSTALL_URL} size={196} />
         </div>
 
         <p className="mt-6 font-mono text-[11px] tracking-[0.18em] uppercase text-fg-subtle">
@@ -74,63 +76,12 @@ export function QrModal({ open, onClose }: Props) {
         </p>
 
         <a
-          href={APK_URL}
-          download="ilaaka.apk"
+          href="/install"
           className="mt-5 inline-flex items-center gap-2 font-mono text-[12px] tracking-[0.06em] underline decoration-dotted underline-offset-4 text-fg hover:opacity-70 transition-opacity"
         >
-          Or download the APK to this device →
+          Or open the install page on this device →
         </a>
       </div>
     </div>
-  );
-}
-
-function FauxQr() {
-  /* deterministic 17×17 QR-style bitmap with three positioning markers */
-  const N = 17;
-  const cells: number[][] = [];
-  let s = 1337;
-  const rand = () => {
-    s = (s * 9301 + 49297) % 233280;
-    return s / 233280;
-  };
-  for (let y = 0; y < N; y++) {
-    cells[y] = [];
-    for (let x = 0; x < N; x++) {
-      cells[y]![x] = rand() > 0.55 ? 1 : 0;
-    }
-  }
-  // place three positioning squares
-  const stamp = (px: number, py: number) => {
-    for (let dy = 0; dy < 7; dy++)
-      for (let dx = 0; dx < 7; dx++) {
-        const isBorder = dx === 0 || dx === 6 || dy === 0 || dy === 6;
-        const isCore = dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4;
-        const v = isBorder || isCore ? 1 : 0;
-        cells[py + dy]![px + dx] = v;
-      }
-  };
-  stamp(0, 0);
-  stamp(N - 7, 0);
-  stamp(0, N - 7);
-
-  return (
-    <svg viewBox={`0 0 ${N} ${N}`} className="w-full h-full">
-      {cells.flatMap((row, y) =>
-        row.map((v, x) =>
-          v ? (
-            <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="#08070a" />
-          ) : null,
-        ),
-      )}
-      <rect
-        x={(N - 3) / 2}
-        y={(N - 3) / 2}
-        width={3}
-        height={3}
-        fill="#08070a"
-        rx={0.5}
-      />
-    </svg>
   );
 }
