@@ -1,0 +1,17 @@
+# Netlify configuration for the Ilaaka landing app.
+#
+# The base directory is set in the Netlify dashboard (apps/landing), so paths
+# in this file are relative to apps/landing/.
+
+[build.environment]
+  # NEXT_PUBLIC_* values are embedded in client bundles by design — that's
+  # what the prefix means. Both Supabase anon keys (gated by RLS) and the
+  # PostHog public API key are safe to expose. Tell Netlify's secret
+  # scanner not to flag them.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,NEXT_PUBLIC_POSTHOG_KEY"
+
+  # The Android APK in public/ is a separately-built artifact that bundles
+  # the same NEXT_PUBLIC_* values as part of its own build (the mobile app
+  # talks to Supabase too). The scanner finds them inside the binary —
+  # also expected. Glob covers future version bumps.
+  SECRETS_SCAN_OMIT_PATHS = "public/ilaaka_*.apk"
