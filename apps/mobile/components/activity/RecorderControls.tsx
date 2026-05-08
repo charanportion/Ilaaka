@@ -1,5 +1,7 @@
 import { View, TouchableOpacity } from 'react-native';
 import { Play, Pause, Square } from 'lucide-react-native';
+import { useTokens } from '@/lib/useTokens';
+import { shadows } from '@/lib/design-tokens';
 
 type Props = {
   isRecording: boolean;
@@ -11,40 +13,58 @@ type Props = {
 };
 
 export function RecorderControls({ isRecording, isPaused, onStart, onPause, onResume, onStop }: Props) {
+  const { colors } = useTokens();
+
   if (!isRecording) {
     return (
       <View className="items-center">
         <TouchableOpacity
           onPress={onStart}
-          className="w-24 h-24 rounded-full bg-indigo-500 items-center justify-center shadow-lg"
+          style={{
+            width: 96, height: 96, borderRadius: 48,
+            backgroundColor: colors.ctaBg,
+            alignItems: 'center', justifyContent: 'center',
+            ...shadows.standard,
+          }}
           activeOpacity={0.8}
         >
-          <Play color="#fff" size={40} fill="#fff" />
+          <Play color={colors.ctaFg} size={40} fill={colors.ctaFg} />
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View className="flex-row gap-8 justify-center items-center">
+    <View style={{ flexDirection: 'row', gap: 32, alignItems: 'center', justifyContent: 'center' }}>
       <TouchableOpacity
         onPress={isPaused ? onResume : onPause}
-        className="w-16 h-16 rounded-full bg-white border-2 border-indigo-500 items-center justify-center"
+        style={{
+          width: 64, height: 64, borderRadius: 32,
+          backgroundColor: colors.surface,
+          borderWidth: 2, borderColor: colors.ctaBg,
+          alignItems: 'center', justifyContent: 'center',
+          ...shadows.whisper,
+        }}
         activeOpacity={0.8}
       >
         {isPaused ? (
-          <Play color="#6366F1" size={28} fill="#6366F1" />
+          <Play color={colors.ctaBg} size={28} fill={colors.ctaBg} />
         ) : (
-          <Pause color="#6366F1" size={28} fill="#6366F1" />
+          <Pause color={colors.ctaBg} size={28} fill={colors.ctaBg} />
         )}
       </TouchableOpacity>
 
       <TouchableOpacity
         onPress={onStop}
-        className="w-16 h-16 rounded-full bg-red-500 items-center justify-center"
+        style={{
+          width: 64, height: 64, borderRadius: 32,
+          backgroundColor: colors.danger,
+          alignItems: 'center', justifyContent: 'center',
+          ...shadows.whisper,
+        }}
         activeOpacity={0.8}
       >
-        <Square color="#fff" size={28} fill="#fff" />
+        <Square color="#ffffff" size={28} fill="#ffffff" />
       </TouchableOpacity>
     </View>
   );

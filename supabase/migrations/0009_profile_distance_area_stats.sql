@@ -2,6 +2,8 @@
 -- and lifetime unique area captured (area of ST_Union of all capture polygons,
 -- so walking the same area twice doesn't double-count).
 -- security invoker + RLS on activities means non-owners get 0 / 0.
+drop function if exists public.profile_zone_stats(uuid);
+
 create or replace function public.profile_zone_stats(p_user_id uuid)
 returns table (
   distance_walked_m bigint,

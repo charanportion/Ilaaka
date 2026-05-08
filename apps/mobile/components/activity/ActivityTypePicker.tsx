@@ -1,5 +1,7 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
 import { Activity, Footprints, Bike, Mountain } from 'lucide-react-native';
+import { Text } from '@/components/ui/Text';
+import { useTokens } from '@/lib/useTokens';
 import type { ActivityType } from '@/types/api';
 
 type IconComponent = React.ComponentType<{ color: string; size: number }>;
@@ -17,23 +19,28 @@ type Props = {
 };
 
 export function ActivityTypePicker({ selected, onChange }: Props) {
+  const { colors } = useTokens();
   return (
-    <View className="flex-row gap-3">
+    <View style={{ flexDirection: 'row', gap: 12 }}>
       {TYPES.map(({ type, label, Icon }) => {
         const active = selected === type;
         return (
           <TouchableOpacity
             key={type}
             onPress={() => onChange(type)}
-            className={`flex-1 items-center py-3 rounded-2xl border ${
-              active ? 'bg-indigo-500 border-indigo-500' : 'bg-white border-gray-200'
-            }`}
+            style={{
+              flex: 1, alignItems: 'center',
+              paddingVertical: 12,
+              borderRadius: 16,
+              borderWidth: 1,
+              backgroundColor: active ? colors.ctaBg : colors.surface,
+              borderColor:     active ? colors.ctaBg : colors.border,
+            }}
           >
-            <Icon color={active ? '#fff' : '#6B7280'} size={20} />
+            <Icon color={active ? colors.ctaFg : colors.inkMuted} size={20} />
             <Text
-              className={`text-xs mt-1 font-semibold ${
-                active ? 'text-white' : 'text-gray-500'
-              }`}
+              variant="tag"
+              style={{ marginTop: 4, color: active ? colors.ctaFg : colors.inkMuted }}
             >
               {label}
             </Text>

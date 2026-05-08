@@ -1,24 +1,56 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { signUpWithEmail } from '@/lib/auth';
+import { Text } from '@/components/ui/Text';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { Eyebrow } from '@/components/brand/Eyebrow';
+import { ScribbleSticker } from '@/components/brand/ScribbleSticker';
+import { useTokens } from '@/lib/useTokens';
+
+// Reasonable RFC-5322 simplification — full RFC is unverifiable in practice.
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function passwordStrength(p: string): { score: 0 | 1 | 2 | 3; label: string } {
+  if (p.length < 8) return { score: 0, label: 'Too short' };
+  let score = 1;
+  if (/[A-Z]/.test(p) && /[a-z]/.test(p)) score++;
+  if (/\d/.test(p) || /[^A-Za-z0-9]/.test(p)) score++;
+  return {
+    score: Math.min(3, score) as 0 | 1 | 2 | 3,
+    label: score === 1 ? 'Weak' : score === 2 ? 'OK' : 'Strong',
+  };
+}
 
 export default function SignUpScreen() {
+  const router = useRouter();
+  const { colors } = useTokens();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const emailValid = email.trim().length === 0 || EMAIL_REGEX.test(email.trim());
+  const strength = useMemo(() => passwordStrength(password), [password]);
+  const canSubmit = !loading
+    && email.trim().length > 0
+    && EMAIL_REGEX.test(email.trim())
+    && password.length >= 8;
+
   async function handleSignUp() {
-    if (!email || !password) return;
+    if (!email || !password) {
+      Alert.alert('Missing details', 'Enter your email and a password.');
+      return;
+    }
+    if (!EMAIL_REGEX.test(email.trim())) {
+      Alert.alert('Check your email', 'That doesn’t look like a valid email address.');
+      return;
+    }
     if (password.length < 8) {
       Alert.alert('Password too short', 'Use at least 8 characters.');
       return;
@@ -26,6 +58,11 @@ export default function SignUpScreen() {
     setLoading(true);
     try {
       await signUpWithEmail(email.trim(), password);
+      Alert.alert(
+        'Check your email',
+        `We sent a verification link to ${email.trim()}. Confirm it, then sign in.`,
+        [{ text: 'OK', onPress: () => router.replace('/(auth)/sign-in') }],
+      );
     } catch (e: unknown) {
       Alert.alert('Sign up failed', e instanceof Error ? e.message : 'Unknown error');
     } finally {
@@ -36,48 +73,94 @@ export default function SignUpScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-white"
+      className="flex-1 bg-bg"
     >
       <View className="flex-1 justify-center px-6">
-        <Text className="text-3xl font-bold text-center mb-2 text-brand">Ilaaka</Text>
-        <Text className="text-center text-gray-500 mb-10">Create your account</Text>
+        <View style={{ alignItems: 'center', marginBottom: 36 }}>
+          <Eyebrow style={{ marginBottom: 18, justifyContent: 'center' }}>
+            New walker · Hyderabad
+          </Eyebrow>
+          <ScribbleSticker inset={{ x: 18, y: 6 }} style={{ alignSelf: 'center' }}>
+            <Text
+              variant="displayWonk"
+              tone="inverse"
+              style={{ fontSize: 56, lineHeight: 60, paddingHorizontal: 4 }}
+            >
+              ilaaka
+            </Text>
+          </ScribbleSticker>
+          <Text
+            variant="bodyLg"
+            tone="muted"
+            align="center"
+            style={{ marginTop: 22 }}
+          >
+            Claim your neighbourhood.
+          </Text>
+        </View>
 
-        <TextInput
-          className="border border-gray-300 rounded-xl px-4 py-3 mb-3 text-base"
-          placeholder="Email"
+        <Input
+          label="Email"
+          placeholder="you@example.com"
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
+          autoCorrect={false}
           keyboardType="email-address"
           editable={!loading}
+          containerStyle={{ marginBottom: 4 }}
         />
-        <TextInput
-          className="border border-gray-300 rounded-xl px-4 py-3 mb-5 text-base"
-          placeholder="Password (min 8 characters)"
+        {!emailValid ? (
+          <Text variant="caption" tone="danger" style={{ marginBottom: 8, marginLeft: 2 }}>
+            Enter a valid email address.
+          </Text>
+        ) : (
+          <View style={{ marginBottom: 8 }} />
+        )}
+
+        <Input
+          label="Password"
+          placeholder="At least 8 characters"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
           editable={!loading}
+          containerStyle={{ marginBottom: 4 }}
+        />
+        {password.length > 0 ? (
+          <View style={{ marginBottom: 20, marginLeft: 2 }}>
+            <View style={{ flexDirection: 'row', gap: 4, marginBottom: 4 }}>
+              {[0, 1, 2].map((i) => (
+                <View key={i} style={{
+                  flex: 1, height: 3, borderRadius: 2,
+                  backgroundColor:
+                    i < strength.score
+                      ? (strength.score === 1 ? colors.danger : strength.score === 2 ? colors.warning : colors.success)
+                      : colors.borderInput,
+                }} />
+              ))}
+            </View>
+            <Text variant="tag" tone="muted">{strength.label}</Text>
+          </View>
+        ) : (
+          <View style={{ marginBottom: 20 }} />
+        )}
+
+        <Button
+          label="Create account"
+          variant="primary"
+          size="lg"
+          fullWidth
+          loading={loading}
+          disabled={!canSubmit}
+          onPress={handleSignUp}
+          style={{ marginBottom: 24 }}
         />
 
-        <TouchableOpacity
-          className="bg-brand rounded-xl py-4 mb-6 items-center"
-          onPress={handleSignUp}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text className="text-white font-semibold text-base">Create account</Text>
-          )}
-        </TouchableOpacity>
-
         <Link href="/(auth)/sign-in" asChild>
-          <TouchableOpacity className="items-center">
-            <Text className="text-gray-500">
-              Already have an account? <Text className="text-brand font-semibold">Sign in</Text>
-            </Text>
-          </TouchableOpacity>
+          <Text variant="caption" tone="muted" align="center">
+            Already have an account? <Text variant="captionStrong" tone="link">Sign in</Text>
+          </Text>
         </Link>
       </View>
     </KeyboardAvoidingView>

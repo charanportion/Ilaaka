@@ -11,7 +11,7 @@ import {
   clearBuffer,
 } from '@/db/trace-buffer';
 
-type TracePoint = { lng: number; lat: number; ts: number; accuracy: number };
+type TracePoint = { lng: number; lat: number; ts: number; accuracy: number; altitude: number | null };
 
 type ActivityState = {
   isRecording: boolean;
@@ -77,6 +77,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       lat: loc.coords.latitude,
       ts: loc.timestamp,
       accuracy: loc.coords.accuracy ?? 999,
+      altitude: loc.coords.altitude ?? null,
     };
     bufferPoint(s.localId, s.points.length, point);
     const newPoints = [...s.points, point];

@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { Link } from 'expo-router';
 import { signInWithEmail, signInWithGoogleWeb } from '@/lib/auth';
+import { Text } from '@/components/ui/Text';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { Eyebrow } from '@/components/brand/Eyebrow';
+import { ScribbleSticker } from '@/components/brand/ScribbleSticker';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
@@ -43,56 +44,76 @@ export default function SignInScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-white"
+      className="flex-1 bg-bg"
     >
       <View className="flex-1 justify-center px-6">
-        <Text className="text-3xl font-bold text-center mb-2 text-brand">Ilaaka</Text>
-        <Text className="text-center text-gray-500 mb-10">Apna Ilaaka. Apni Fitness.</Text>
+        <View style={{ alignItems: 'center', marginBottom: 36 }}>
+          <Eyebrow style={{ marginBottom: 18, justifyContent: 'center' }}>
+            Sign in · Hyderabad
+          </Eyebrow>
+          <ScribbleSticker inset={{ x: 18, y: 6 }} style={{ alignSelf: 'center' }}>
+            <Text
+              variant="displayWonk"
+              tone="inverse"
+              style={{ fontSize: 56, lineHeight: 60, paddingHorizontal: 4 }}
+            >
+              ilaaka
+            </Text>
+          </ScribbleSticker>
+          <Text
+            variant="bodyLg"
+            tone="muted"
+            align="center"
+            style={{ marginTop: 22 }}
+          >
+            Apna Ilaaka. Apni Fitness.
+          </Text>
+        </View>
 
-        <TextInput
-          className="border border-gray-300 rounded-xl px-4 py-3 mb-3 text-base"
-          placeholder="Email"
+        <Input
+          label="Email"
+          placeholder="you@example.com"
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
           keyboardType="email-address"
           editable={!loading}
+          containerStyle={{ marginBottom: 12 }}
         />
-        <TextInput
-          className="border border-gray-300 rounded-xl px-4 py-3 mb-5 text-base"
-          placeholder="Password"
+        <Input
+          label="Password"
+          placeholder="••••••••"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
           editable={!loading}
+          containerStyle={{ marginBottom: 20 }}
         />
 
-        <TouchableOpacity
-          className="bg-brand rounded-xl py-4 mb-3 items-center"
+        <Button
+          label="Sign in"
+          variant="primary"
+          size="lg"
+          fullWidth
+          loading={loading}
           onPress={handleEmailSignIn}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text className="text-white font-semibold text-base">Sign in</Text>
-          )}
-        </TouchableOpacity>
+          style={{ marginBottom: 12 }}
+        />
 
-        <TouchableOpacity
-          className="border border-gray-300 rounded-xl py-4 mb-6 items-center"
-          onPress={handleGoogleSignIn}
+        <Button
+          label="Sign in with Google"
+          variant="secondary"
+          size="lg"
+          fullWidth
           disabled={loading}
-        >
-          <Text className="text-gray-700 font-semibold text-base">Sign in with Google</Text>
-        </TouchableOpacity>
+          onPress={handleGoogleSignIn}
+          style={{ marginBottom: 24 }}
+        />
 
         <Link href="/(auth)/sign-up" asChild>
-          <TouchableOpacity className="items-center">
-            <Text className="text-gray-500">
-              No account? <Text className="text-brand font-semibold">Sign up</Text>
-            </Text>
-          </TouchableOpacity>
+          <Text variant="caption" tone="muted" align="center">
+            No account? <Text variant="captionStrong" tone="link">Sign up</Text>
+          </Text>
         </Link>
       </View>
     </KeyboardAvoidingView>

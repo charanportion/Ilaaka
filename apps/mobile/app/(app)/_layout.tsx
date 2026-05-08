@@ -1,13 +1,23 @@
 import { Tabs } from 'expo-router';
-import { Map, Activity, Users, User } from 'lucide-react-native';
+import { Map, Activity, Users, Newspaper, User } from 'lucide-react-native';
+import { useTokens } from '@/lib/useTokens';
 
 export default function AppLayout() {
+  const { colors } = useTokens();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#7F77DD',
-        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarActiveTintColor:   colors.ctaBg,
+        tabBarInactiveTintColor: colors.inkSubtle,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor:  colors.border,
+        },
+        tabBarLabelStyle: {
+          fontFamily: 'Manrope_500Medium',
+          fontSize: 11,
+        },
       }}
     >
       <Tabs.Screen
@@ -32,12 +42,23 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
+        name="feed"
+        options={{
+          title: 'Feed',
+          tabBarIcon: ({ color, size }) => <Newspaper color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
         }}
       />
+      {/* Hidden from tab bar — accessible via router.push */}
+      <Tabs.Screen name="legal"        options={{ href: null }} />
+      <Tabs.Screen name="edit-profile" options={{ href: null }} />
+      <Tabs.Screen name="progress"     options={{ href: null }} />
     </Tabs>
   );
 }
