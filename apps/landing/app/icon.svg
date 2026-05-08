@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    .bg { fill: #08070a; }
+    .hex { fill: #f8f1e3; }
+    @media (prefers-color-scheme: light) {
+      .bg { fill: #f8f1e3; }
+      .hex { fill: #08070a; }
+    }
+  </style>
+  <rect class="bg" width="64" height="64" rx="14"/>
+  <polygon class="hex" points="32,12 54,24 54,41 32,53 10,41 10,24"/>
+</svg>
