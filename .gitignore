@@ -13,6 +13,10 @@ apps/mobile/android/app/google-services.json
 apps/mobile/GoogleService-Info.plist
 apps/mobile/ios/**/GoogleService-Info.plist
 
+# Firebase Admin SDK service-account JSON keys (any project, any subdir)
+*-firebase-adminsdk-*.json
+firebase-adminsdk-*.json
+
 # Android keystores — production signing material
 *.keystore
 *.jks
