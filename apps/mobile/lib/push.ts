@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { capture } from '@/lib/analytics';
@@ -105,8 +105,19 @@ export function attachNotificationHandlers(): () => void {
   });
 
   const tapSub = Notifications.addNotificationResponseReceivedListener((response) => {
-    const type = (response.notification.request.content.data?.type as string | undefined) ?? 'unknown';
+    const data = response.notification.request.content.data ?? {};
+    const type = (data?.type as string | undefined) ?? 'unknown';
     capture('push_tapped', { type });
+
+    // Update reminders deep-link to the install page in the browser — there's
+    // no in-app upgrade path for direct APK distribution.
+    if (type === 'update_available') {
+      const installUrl =
+        (data?.installUrl as string | undefined) ?? 'https://ilaaka.dotportion.com/install';
+      Linking.openURL(installUrl).catch(() => {});
+      return;
+    }
+
     // Route by push type. Default = map.
     const target = type === 'weekly_stats' ? '/(app)/profile' : '/(app)/map';
     try {

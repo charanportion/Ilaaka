@@ -10,7 +10,7 @@ import type { NextConfig } from "next";
  *   3. Update version / sizeBytes / sha256 in lib/launch-phases.ts
  *   4. Commit + redeploy
  */
-const APK_FILENAME = "ilaaka_v1.0.1.apk";
+const APK_FILENAME = "ilaaka_v1.0.2.apk";
 const APK_RELEASE_URL = `/${APK_FILENAME}`;
 
 const nextConfig: NextConfig = {
