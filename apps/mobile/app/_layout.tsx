@@ -1,4 +1,5 @@
 import '../global.css';
+import 'expo-insights';
 import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
