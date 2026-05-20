@@ -57,9 +57,28 @@ export async function submitActivity(
   );
 
   if (error || !data) {
-    // error.message may contain the server's reason string (too_short, gps_quality, etc.)
-    throw new Error(error?.message ?? 'submit_failed');
+    // supabase-js wraps non-2xx responses in FunctionsHttpError whose .message is
+    // the generic "Edge Function returned a non-2xx status code". The actual
+    // reason ({ error: 'too_short_distance' }, etc.) is on error.context (a Response).
+    const reason = await readErrorReason(error);
+    throw new Error(reason);
   }
 
   return data;
+}
+
+async function readErrorReason(error: unknown): Promise<string> {
+  if (!error) return 'submit_failed';
+  // FunctionsHttpError exposes the raw Response on .context
+  const ctx = (error as { context?: unknown }).context;
+  if (ctx && typeof (ctx as Response).json === 'function') {
+    try {
+      const body = await (ctx as Response).clone().json() as { error?: string };
+      if (body?.error && typeof body.error === 'string') return body.error;
+    } catch {
+      // body wasn't JSON — fall through
+    }
+  }
+  const msg = (error as { message?: string }).message;
+  return msg && msg.length > 0 ? msg : 'submit_failed';
 }
