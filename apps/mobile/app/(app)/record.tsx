@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { View, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Alert, AppState, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { Maximize2, Minimize2 } from 'lucide-react-native';
 import { useActivityStore } from '@/stores/activity-store';
 import { useAuthStore } from '@/stores/auth-store';
-import { startTracking, stopTracking } from '@/lib/location';
+import { reconcileTrackingOnLaunch } from '@/lib/location';
 import { submitActivity } from '@/lib/submit-activity';
 import { markPendingSubmitted } from '@/db/trace-buffer';
 import { showLocationDenied } from '@/lib/permissions';
@@ -48,6 +48,7 @@ export default function RecordScreen() {
     isRecording,
     isPaused,
     hasPending,
+    isBackgroundResumed,
     type,
     localId,
     startedAt,
@@ -55,11 +56,13 @@ export default function RecordScreen() {
     distanceM,
     durationS,
     start,
+    continuePending,
     pause,
     resume,
     stop,
     reset,
     loadPending,
+    syncFromSession,
   } = useActivityStore();
   const userId = useAuthStore((s) => s.user?.id);
   const primaryActivity = useAuthStore((s) => s.profile?.primary_activity);
@@ -75,11 +78,27 @@ export default function RecordScreen() {
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    loadPending();
+    // Reconcile any task that survived a previous app launch (e.g. user
+    // killed the app then reopened), then hydrate the store from SQLite.
+    reconcileTrackingOnLaunch().finally(() => {
+      void loadPending();
+    });
     Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
       .then((pos) => setInitialCenter([pos.coords.longitude, pos.coords.latitude]))
       .catch(() => {/* permission denied or no fix yet */});
   }, []);
+
+  // When the app returns to foreground, pull the latest session state from
+  // SQLite — the background task may have written fixes while we were away,
+  // or a notification button may have flipped pause/resume.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') {
+        syncFromSession();
+      }
+    });
+    return () => sub.remove();
+  }, [syncFromSession]);
 
   useEffect(() => {
     if (screen !== 'recording' || isPaused) return;
@@ -94,26 +113,22 @@ export default function RecordScreen() {
   }
 
   async function handleStart() {
-    try {
-      start(localType);
-      await startTracking();
+    const result = await start(localType);
+    if (result.ok) {
       setScreen('recording');
-    } catch (err: unknown) {
-      reset();
-      const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('permission') || msg.includes('Permission')) {
-        showLocationDenied();
-      } else {
-        Alert.alert('Location Required', msg || 'Could not start GPS tracking.');
-      }
+      return;
     }
+    if (result.reason === 'foreground_denied' || result.reason === 'background_denied') {
+      showLocationDenied();
+      return;
+    }
+    Alert.alert('Already Recording', 'A previous activity is still in progress. Tap "Continue Activity" to resume it.');
   }
 
   async function handleStop() {
-    stop();
-    setScreen('metadata');
     resetSubmissionState();
-    await stopTracking();
+    await stop();
+    setScreen('metadata');
   }
 
   async function handlePublish(metadata: ActivityMetadata) {
@@ -157,18 +172,16 @@ export default function RecordScreen() {
   }
 
   async function handleContinuePending() {
-    try {
-      await startTracking();
-      useActivityStore.setState({ isRecording: true, isPaused: false, hasPending: false });
+    const result = await continuePending();
+    if (result.ok) {
       setScreen('recording');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('permission') || msg.includes('Permission')) {
-        showLocationDenied();
-      } else {
-        Alert.alert('Location Required', msg || 'Could not start GPS tracking.');
-      }
+      return;
     }
+    if (result.reason === 'foreground_denied' || result.reason === 'background_denied') {
+      showLocationDenied();
+      return;
+    }
+    Alert.alert('Could not resume', 'This activity may have already been completed.');
   }
 
   if (screen === 'metadata') {
@@ -432,10 +445,13 @@ export default function RecordScreen() {
         {hasPending && (
           <Card padding={20} style={{ marginBottom: 24, borderColor: colors.warning, borderWidth: 1 }}>
             <Text variant="bodyStrong" tone="warning" align="center" style={{ marginBottom: 4 }}>
-              Previous activity in progress
+              {isBackgroundResumed
+                ? (isPaused ? 'Recording paused' : 'Recording in background')
+                : 'Previous activity in progress'}
             </Text>
             <Text variant="caption" tone="muted" align="center" style={{ marginBottom: 16 }}>
               {(distanceM / 1000).toFixed(2)} km · {points.length} GPS points saved
+              {isBackgroundResumed && !isPaused ? ' · open notification to control' : ''}
             </Text>
             <Button
               label="Continue Activity"
@@ -475,13 +491,41 @@ export default function RecordScreen() {
 
 function friendlyError(reason: string): string {
   const messages: Record<string, string> = {
-    too_few_points:     'Not enough GPS points recorded.',
-    too_short:          'Activity was too short (minimum 60 seconds).',
-    too_short_distance: 'Distance too short (minimum 250 m).',
-    gps_quality:        'GPS accuracy was too low. Try recording outdoors.',
-    discontinuous_trace:'GPS signal was lost for too long during the activity.',
-    implausible_pace:   "Pace looks off — make sure you're not in a vehicle.",
-    too_large:          'Route is too large to process. Try a shorter activity.',
+    too_few_points:
+      "Your activity ended before we picked up enough GPS points. Next time, keep moving outdoors for at least a minute before stopping.",
+    too_short:
+      "Your activity was less than 60 seconds. Record for at least a minute before stopping.",
+    too_short_distance:
+      "You covered less than 250 m. Walk, run, or cycle a bit further before stopping.",
+    gps_quality:
+      "GPS signal was weak during this activity. Move into the open (away from tall buildings or indoors) and try again.",
+    discontinuous_trace:
+      "GPS dropped out for more than 2 minutes during your activity. Keep the app open and your phone unblocked while recording.",
+    implausible_pace:
+      "Your pace looked too fast or too slow for this activity type. Make sure you're not in a vehicle, and that you picked the right activity (walk / run / cycle).",
+    too_large:
+      "This route is too large for us to process. Try recording a shorter activity.",
+    too_long:
+      "Your activity is longer than 24 hours. Tap Stop sooner next time — leaving the recorder running for days isn't supported.",
+    too_long_distance:
+      "Your activity covered more than 500 km, which we can't process. Did you forget to stop the recorder?",
+    sample_length_mismatch:
+      "Something went wrong with the GPS data on your device. Discard this activity and start a fresh one.",
+    rate_limited:
+      "You've saved a lot of activities in the last hour. Wait a few minutes and try again.",
+    unauthorized:
+      "Your session expired. Sign in again and retry — your activity is still saved on this device.",
+    invalid_json:
+      "Something went wrong sending this activity. Tap Retry, or close and reopen the app.",
+    invalid:
+      "Some of the activity data looked off to the server. Tap Retry; if it keeps failing, please contact support.",
+    processing_failed:
+      "We saved your activity but couldn't compute your zones. Tap Retry — if it keeps failing, please contact support.",
+    submit_failed:
+      "Couldn't reach the server. Check your internet connection and tap Retry.",
   };
-  return messages[reason] ?? 'Could not save activity. Please try again.';
+  return (
+    messages[reason] ??
+    "Something unexpected went wrong. Check your internet and tap Retry — if it keeps failing, please contact support."
+  );
 }

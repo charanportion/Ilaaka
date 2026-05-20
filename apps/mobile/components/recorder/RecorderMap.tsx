@@ -15,11 +15,17 @@ import { MapRecenterButton } from '@/components/map/MapRecenterButton';
 import { useMapStyleUrl } from '@/lib/theme';
 import { useTokens } from '@/lib/useTokens';
 import { filterOutliers, type RawPoint } from '@/lib/smooth';
+import { useActivityStore } from '@/stores/activity-store';
 import type { ActivityType } from '@/types/api';
 
 const FOLLOW_ZOOM = 17;
-const FOLLOW_EASE_MS = 600;
+// Shorter ease (was 600) keeps the bearing animation from stacking too far past
+// the next GPS fix at 1Hz, which used to cause visible stutter.
+const FOLLOW_EASE_MS = 400;
 const NEAR_USER_METERS = 30;
+const HEADING_EMA_ALPHA = 0.3;
+// Caps the map's angular velocity so a single bad GPS heading can't spin the map.
+const MAX_SLEW_DEG_PER_SEC = 90;
 
 function isNear(a: [number, number] | null, b: [number, number] | null): boolean {
   if (!a || !b) return false;
@@ -27,6 +33,28 @@ function isNear(a: [number, number] | null, b: [number, number] | null): boolean
   const dxMeters = (a[0] - b[0]) * cosLat * 111_320;
   const dyMeters = (a[1] - b[1]) * 111_320;
   return Math.hypot(dxMeters, dyMeters) < NEAR_USER_METERS;
+}
+
+function normalizeDeg(d: number): number {
+  return ((d % 360) + 360) % 360;
+}
+
+// EMA over headings in unit-vector space — averaging raw degrees would wrap
+// badly near 0/360 (e.g. mean of 350° and 10° should be 0°, not 180°).
+function circularEma(prev: number, next: number, alpha: number): number {
+  const pRad = (prev * Math.PI) / 180;
+  const nRad = (next * Math.PI) / 180;
+  const x = Math.cos(pRad) + alpha * (Math.cos(nRad) - Math.cos(pRad));
+  const y = Math.sin(pRad) + alpha * (Math.sin(nRad) - Math.sin(pRad));
+  return normalizeDeg((Math.atan2(y, x) * 180) / Math.PI);
+}
+
+function slewCap(prev: number, target: number, maxDeltaDeg: number): number {
+  let diff = normalizeDeg(target) - normalizeDeg(prev);
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  const clamped = Math.max(-maxDeltaDeg, Math.min(maxDeltaDeg, diff));
+  return normalizeDeg(prev + clamped);
 }
 
 type Props = {
@@ -51,6 +79,12 @@ export function RecorderMap({
   const [userPanned, setUserPanned] = useState(false);
   const [bearing, setBearing] = useState(0);
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
+  // Sticky north-up after the user taps the compass while centered. Cleared
+  // when they tap recenter (course-up re-engages).
+  const [northUpLocked, setNorthUpLocked] = useState(false);
+  const smoothedBearingRef = useRef<number | null>(null);
+  const lastBearingUpdateRef = useRef<number>(0);
+  const latestHeading = useActivityStore((s) => s.latestHeading);
 
   const trailFc = useMemo<GeoJSON.Feature<GeoJSON.LineString> | null>(() => {
     if (points.length < 2) return null;
@@ -70,17 +104,40 @@ export function RecorderMap({
     };
   }, [points, activityType]);
 
+  // Apply circular EMA + slew cap to the gated GPS heading. Writing through a
+  // ref (not state) so updating bearing doesn't re-render — the camera effect
+  // below reads the ref when it fires on the next position or heading change.
+  useEffect(() => {
+    if (latestHeading == null) return;
+    const now = Date.now();
+    if (smoothedBearingRef.current == null) {
+      smoothedBearingRef.current = normalizeDeg(latestHeading);
+    } else {
+      const dtS = Math.max((now - lastBearingUpdateRef.current) / 1000, 0.001);
+      const target = circularEma(smoothedBearingRef.current, latestHeading, HEADING_EMA_ALPHA);
+      smoothedBearingRef.current = slewCap(
+        smoothedBearingRef.current,
+        target,
+        MAX_SLEW_DEG_PER_SEC * dtS,
+      );
+    }
+    lastBearingUpdateRef.current = now;
+  }, [latestHeading]);
+
   // Ease the camera to the latest point on every new GPS sample while following.
   // Skips when the user has manually panned away — recenter button restores follow.
   const latest = points.length > 0 ? points[points.length - 1] : null;
   useEffect(() => {
     if (!isFollowing || userPanned || !latest || !cameraRef.current) return;
+    const smoothed = smoothedBearingRef.current;
+    const applyBearing = !northUpLocked && smoothed != null;
     cameraRef.current.easeTo({
       center:   [latest.lng, latest.lat],
       zoom:     FOLLOW_ZOOM,
       duration: FOLLOW_EASE_MS,
+      ...(applyBearing ? { bearing: smoothed } : {}),
     });
-  }, [isFollowing, userPanned, latest?.lng, latest?.lat]);
+  }, [isFollowing, userPanned, latest?.lng, latest?.lat, latestHeading, northUpLocked]);
 
   function handleRegionIsChanging(e: NativeSyntheticEvent<ViewStateChangeEvent>) {
     const { bearing: nextBearing, center, userInteraction } = e.nativeEvent;
@@ -95,7 +152,11 @@ export function RecorderMap({
   function handleRecenterPress() {
     if (!cameraRef.current) return;
     if (isCenteredOnUser) {
+      // Compass tap while centered: snap to north and lock it. Course-up stays
+      // off until the user pans away and taps recenter again.
       cameraRef.current.setStop({ bearing: 0, pitch: 0, duration: 400 });
+      setNorthUpLocked(true);
+      smoothedBearingRef.current = null;
       return;
     }
     if (!userLngLat) return;
@@ -105,6 +166,7 @@ export function RecorderMap({
       duration: 500,
     });
     setUserPanned(false);
+    setNorthUpLocked(false);
   }
 
   // Either GPS-derived initial center, or the first recorded point if we

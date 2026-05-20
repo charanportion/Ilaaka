@@ -1,23 +1,37 @@
-import * as Location from 'expo-location';
-import { useActivityStore } from '@/stores/activity-store';
+/**
+ * Thin facade over the recording controller. Kept as the public seam that
+ * record.tsx / activity-store reach for, so the controller's exact shape can
+ * change without touching every caller.
+ */
+import * as controller from '@/lib/recording-controller';
+import type { ActivityType } from '@/types/api';
+import type { StartResult } from '@/lib/recording-controller';
 
-let watcher: Location.LocationSubscription | null = null;
+export type { StartResult };
 
-export async function startTracking(): Promise<void> {
-  const { status } = await Location.requestForegroundPermissionsAsync();
-  if (status !== 'granted') throw new Error('Location permission denied');
-
-  watcher = await Location.watchPositionAsync(
-    {
-      accuracy: Location.Accuracy.BestForNavigation,
-      timeInterval: 1000,   // fire every ~1 s regardless of movement
-      distanceInterval: 0,  // don't gate on distance — stationary testing still works
-    },
-    (loc) => useActivityStore.getState().addPoint(loc),
-  );
+export function startTracking(
+  type: ActivityType,
+  opts: { localId: string; startedAtMs: number },
+): Promise<StartResult> {
+  return controller.start(type, opts);
 }
 
-export async function stopTracking(): Promise<void> {
-  watcher?.remove();
-  watcher = null;
+export function stopTracking(localId: string): Promise<void> {
+  return controller.stop(localId, { showSavedFollowup: false });
+}
+
+export function pauseTracking(localId: string): Promise<void> {
+  return controller.pause(localId);
+}
+
+export function resumeTracking(localId: string): Promise<void> {
+  return controller.resume(localId);
+}
+
+export function continueTracking(localId: string): Promise<StartResult> {
+  return controller.continueExisting(localId);
+}
+
+export function reconcileTrackingOnLaunch(): Promise<{ active: boolean; localId: string | null }> {
+  return controller.reconcileOnLaunch();
 }

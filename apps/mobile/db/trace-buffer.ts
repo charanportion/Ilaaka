@@ -19,6 +19,18 @@ db.execSync(`
     ended_at integer,
     submitted integer not null default 0
   );
+  create table if not exists recording_session (
+    local_id text primary key,
+    state text not null,
+    total_distance_m real not null default 0,
+    last_lng real,
+    last_lat real,
+    last_fix_ts integer,
+    started_at integer not null,
+    paused_at integer,
+    accumulated_pause_ms integer not null default 0,
+    last_error text
+  );
 `);
 
 // Add altitude column for users upgrading from a pre-altitude build.
@@ -124,4 +136,130 @@ export function markPendingSubmitted(localId: string): void {
 export function clearAllLocalData(): void {
   db.runSync('delete from trace_buffer');
   db.runSync('delete from pending_activities');
+  db.runSync('delete from recording_session');
+}
+
+// ── Recording session ──────────────────────────────────────────────────────
+// Source of truth for live recording state shared between the foreground UI,
+// the background GPS task, and the notification action handler. All writers
+// go through these helpers; no direct SQL elsewhere.
+
+export type SessionState = 'recording' | 'paused' | 'stopped';
+export type SessionErrorCode = 'permission_revoked' | 'storage_full';
+
+export type SessionRow = {
+  local_id: string;
+  state: SessionState;
+  total_distance_m: number;
+  last_lng: number | null;
+  last_lat: number | null;
+  last_fix_ts: number | null;
+  started_at: number;
+  paused_at: number | null;
+  accumulated_pause_ms: number;
+  last_error: SessionErrorCode | null;
+};
+
+export function startSession(localId: string, startedAtMs: number): void {
+  db.runSync(
+    `insert or replace into recording_session
+       (local_id, state, total_distance_m, last_lng, last_lat, last_fix_ts,
+        started_at, paused_at, accumulated_pause_ms, last_error)
+     values (?, 'recording', 0, null, null, null, ?, null, 0, null)`,
+    localId, startedAtMs,
+  );
+}
+
+export function readSession(localId: string): SessionRow | null {
+  return db.getFirstSync<SessionRow>(
+    `select local_id, state, total_distance_m, last_lng, last_lat, last_fix_ts,
+            started_at, paused_at, accumulated_pause_ms, last_error
+       from recording_session where local_id = ?`,
+    localId,
+  ) ?? null;
+}
+
+export function readActiveSession(): SessionRow | null {
+  return db.getFirstSync<SessionRow>(
+    `select local_id, state, total_distance_m, last_lng, last_lat, last_fix_ts,
+            started_at, paused_at, accumulated_pause_ms, last_error
+       from recording_session
+      where state in ('recording','paused')
+      order by started_at desc limit 1`,
+  ) ?? null;
+}
+
+// Records a new GPS fix on the session: accumulates distance and snapshots
+// last_*. Idempotent on repeated ts (the task can sometimes redeliver).
+export function updateSessionFix(
+  localId: string,
+  lng: number,
+  lat: number,
+  ts: number,
+  deltaMeters: number,
+): void {
+  const current = readSession(localId);
+  if (!current) return;
+  if (current.last_fix_ts !== null && ts <= current.last_fix_ts) return;
+  db.runSync(
+    `update recording_session
+        set total_distance_m = total_distance_m + ?,
+            last_lng = ?, last_lat = ?, last_fix_ts = ?
+      where local_id = ?`,
+    deltaMeters, lng, lat, ts, localId,
+  );
+}
+
+export function pauseSession(localId: string, pausedAtMs: number): void {
+  const current = readSession(localId);
+  if (!current || current.state !== 'recording') return;
+  db.runSync(
+    `update recording_session set state = 'paused', paused_at = ? where local_id = ?`,
+    pausedAtMs, localId,
+  );
+}
+
+export function resumeSession(localId: string, resumedAtMs: number): void {
+  const current = readSession(localId);
+  if (!current || current.state !== 'paused' || current.paused_at == null) return;
+  const pauseDelta = Math.max(0, resumedAtMs - current.paused_at);
+  db.runSync(
+    `update recording_session
+        set state = 'recording',
+            paused_at = null,
+            accumulated_pause_ms = accumulated_pause_ms + ?,
+            last_error = null
+      where local_id = ?`,
+    pauseDelta, localId,
+  );
+}
+
+export function stopSession(localId: string): void {
+  db.runSync(
+    `update recording_session set state = 'stopped', paused_at = null where local_id = ?`,
+    localId,
+  );
+}
+
+export function clearSession(localId: string): void {
+  db.runSync('delete from recording_session where local_id = ?', localId);
+}
+
+export function markSessionError(localId: string, code: SessionErrorCode): void {
+  db.runSync(
+    `update recording_session
+        set last_error = ?,
+            state = case when state = 'recording' then 'paused' else state end,
+            paused_at = case when state = 'recording' then ? else paused_at end
+      where local_id = ?`,
+    code, Date.now(), localId,
+  );
+}
+
+// Effective recorded time, in ms — wall clock minus accumulated pauses minus
+// the current in-progress pause (if any).
+export function effectiveDurationMs(s: SessionRow, nowMs: number): number {
+  const wall = nowMs - s.started_at;
+  const ongoingPause = s.paused_at != null ? Math.max(0, nowMs - s.paused_at) : 0;
+  return Math.max(0, wall - s.accumulated_pause_ms - ongoingPause);
 }

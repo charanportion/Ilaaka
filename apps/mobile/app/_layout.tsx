@@ -1,5 +1,10 @@
 import '../global.css';
 import 'expo-insights';
+// Side-effect imports: must run at module top during JS bootstrap so the
+// background GPS task and Notifee event handlers are registered before any
+// notification action can reach the app (including from a fully-killed state).
+import '@/lib/recording-task';
+import '@/lib/recording-notification';
 import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
